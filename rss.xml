@@ -7,6 +7,13 @@
     <language>en-us</language>
     <atom:link href="https://stanleyngugi.netlify.app/rss.xml" rel="self" type="application/rss+xml"/>
     <item>
+      <title>An RL Environment Where C Code Has to Be Proved, Not Just Tested</title>
+      <link>https://stanleyngugi.netlify.app/posts/formally-verified-c.html</link>
+      <guid isPermaLink="true">https://stanleyngugi.netlify.app/posts/formally-verified-c.html</guid>
+      <pubDate>Sun, 13 Sep 2026 00:00:00 +0000</pubDate>
+      <description>An RL environment where agents implement C functions under fixed ACSL contracts and receive formal verification feedback and reward from Frama-C.</description>
+    </item>
+    <item>
       <title>How a Grammar Changes AI-Generated Mathematical Proof Steps</title>
       <link>https://stanleyngugi.netlify.app/posts/2026-08-22-grammar-constrained-decoding-lean.html</link>
       <guid isPermaLink="true">https://stanleyngugi.netlify.app/posts/2026-08-22-grammar-constrained-decoding-lean.html</guid>
