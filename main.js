@@ -21,27 +21,53 @@
   }
 
   var email = document.getElementById('copy-email');
+  var copyStatus = document.getElementById('email-copy-status');
   if (email) {
     var original = email.textContent;
+    var address = email.getAttribute('data-email') || original.trim();
     var resetTimer = null;
     email.addEventListener('click', function () {
-      var done = function () {
-        email.textContent = 'copied to clipboard';
-        clearTimeout(resetTimer);
+      clearTimeout(resetTimer);
+      email.disabled = true;
+      if (copyStatus) copyStatus.textContent = '';
+      var report = function (copied) {
+        email.disabled = false;
+        email.textContent = copied ? 'copied' : 'copy failed';
+        if (copyStatus) {
+          copyStatus.textContent = copied
+            ? 'Email address copied.'
+            : 'Could not copy. Select the email address or use the email link.';
+        }
         resetTimer = setTimeout(function () {
           email.textContent = original;
-        }, 1400);
+        }, copied ? 1400 : 3000);
       };
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(original).then(done, done);
+        try {
+          navigator.clipboard.writeText(address).then(function () {
+            report(true);
+          }, function () {
+            report(false);
+          });
+        } catch (e) {
+          report(false);
+        }
       } else {
+        var previousFocus = document.activeElement;
         var ta = document.createElement('textarea');
-        ta.value = original;
+        ta.value = address;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
         document.body.appendChild(ta);
-        ta.select();
-        try { document.execCommand('copy'); } catch (e) {}
+        var copied = false;
+        try {
+          ta.select();
+          copied = document.execCommand('copy');
+        } catch (e) {}
         document.body.removeChild(ta);
-        done();
+        if (previousFocus && previousFocus.focus) previousFocus.focus();
+        report(copied);
       }
     });
   }

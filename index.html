@@ -52,7 +52,11 @@
                 </p>
                 <div class="links-row">
                     <a href="/cv.html" class="pill-primary">CV</a>
-                    <span class="copy-email" id="copy-email" title="click to copy">sngugi.research@gmail.com</span>
+                    <span class="email-contact">
+                        <a href="mailto:sngugi.research@gmail.com">sngugi.research@gmail.com</a>
+                        <button type="button" class="copy-email" id="copy-email" data-email="sngugi.research@gmail.com" aria-label="Copy email address">copy</button>
+                    </span>
+                    <span id="email-copy-status" class="visually-hidden" role="status"></span>
                     <a href="https://github.com/stanleyngugi">github</a>
                     <a href="/rss.xml">rss</a>
                 </div>
@@ -164,3 +168,4 @@
     <script src="/main.js"></script>
 </body>
 </html>
+

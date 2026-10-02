@@ -162,10 +162,37 @@ main {
   display: none;
 }
 
+.email-contact {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .copy-email {
-  color: var(--text);
-  cursor: copy;
-  position: relative;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  padding: 2px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.copy-email:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 .copy-email:hover {
@@ -589,6 +616,10 @@ section.block {
   margin-top: 8mm;
 }
 
+.cv-section > p + p {
+  margin-top: 2.5mm;
+}
+
 .cv-section-first {
   margin-top: 0;
 }
@@ -844,3 +875,4 @@ footer a:hover {
 .cfg-article pre code { font-size: inherit; }
 .mathcheck-article .mermaid { overflow-x: auto; font-size: 14px; }
 .mathcheck-article .mermaid svg { display: block; max-width: 100%; height: auto; margin: auto; }
+
