@@ -185,7 +185,6 @@
 </tbody></table></div>
 <p>I observed a substantial decrease in the polysemanticity of the features when I used L2 instead of L1 regularization (t(16) = 2.1, p = 0.04 for MACS and t(16) = 2.8, p &lt; 0.01 for Interference, Cohen’s d ~1.5–1.6). This is a highly statistically significant decrease, with a very large effect size.</p>
 <p>What’s more, the drop in Interference was achieved while maintaining a similar amount of sparsity, as shown by the L0 norm of the activations. This means that it’s not just that the L2-regularized network has more features overall, but that the features themselves are less polysemantic. Moreover, I observed a huge drop in Train and Validation MSEs, meaning that the network is substantially better at solving the task. The increase in the SAE MSE is likely due to there being more features for it to reconstruct.</p>
-<!-- Unfinished continuation from the rewrite: but since the L0 and the Interference are similar, the S -->
 
 <h3>Result table for all ablations</h3>
 <p>Full results matrix (averaged over 10 seeds)</p>
@@ -304,7 +303,6 @@
 <p>L2 consistently has lower Interference (6.4 to 8.4) than L1 (8.1 to 9.1)</p>
 <p>There seems to be some synergy between Orthogonal and L2+GELU (Config #5, 25.4% lower Interference). Overall, the maximum mitigation is achieved with Config #8, which reduces Interference by 26.8% (t=2.8, p&lt;0.01)</p>
 <p>Surprisingly, while positive kurtosis increases polysemanticity in combination with L1 (+4.7%, config #3), it seems to reduce polysemanticity in combination with L2 (-26.8%, config #8)</p>
-<!-- Unfinished fragment from the rewrite: How much do -->
 
 <h2>Analysis: Why does L2 lead to lower polysemanticity?</h2>
 <h3>A Winner-Take-All Dynamic</h3>
