@@ -30,6 +30,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/styles.css">
+    <style>
+        .article-header .entry-date { white-space: normal; }
+        .prose table td { white-space: nowrap; }
+        .prose sub, .prose sup { line-height: 0; }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -52,489 +57,333 @@
                     <div class="entry-date">October 19, 2025 · 25 min read · interpretability, sparse autoencoders · <a href="https://github.com/stanleyngugi/taming_polysemanticity">code ↗</a></div>
                 </header>
 
-                <div class="tldr-box">
-                    <div class="tldr-label">TL;DR</div>
-                    <p>I built a toy model to test whether network training choices (L1 vs L2 regularization, orthogonal initialization, activation functions, noise) affect the polysemanticity of learned representations. Using sparse autoencoders (SAEs) to measure feature entanglement, I found that networks trained with L2 regularization produced 17.9% less polysemantic representations than L1-trained networks (Interference: 7.14 vs 8.70, t=2.8, p&lt;0.01). This is exploratory work in a toy setting with significant limitations, but it provides mechanistic insights into how training dynamics—not just SAE architecture—shape interpretability.</p>
-                </div>
+<div class="tldr-box"><div class="tldr-label">TL;DR</div><p>I ran some experiments on toy models to test whether there are factors during a network&#39;s training that influence how polysemantic its representations end up being (when probed using SAEs). I found that training with L2 regularization leads to 17.9% less polysemantic representations than training with L1 (Interference of 7.14 vs. 8.70, t=2.8, p&lt;0.01). This is in a toy setting and has lots of caveats, but was an interesting thing to look at for getting better mechanistic understandings of when polysemanticity appears.</p>
+</div>
+<h2>Motivation</h2>
+<p>Polysemanticity is a big problem for MI, and a big concern for safety. Historically it has been understood as a consequence of superposition (i.e. if the network is trying to represent more features than it has dimensions to represent them on). But more recently it has been found that polysemanticity can also appear incidentally, even in overcapacity settings, due to a variety of factors during training (Lecomte et al. 2023). Some examples of these are regularization (in particular things that induce winner-take-all dynamics) and noise (which can induce chance correlations between features and neurons).</p>
+<p>Whilst there have been lots of papers trying to improve the ability of SAEs to decompose features (TopK SAEs, JumpReLU SAEs, Gated SAEs etc.), much less work has been done on whether factors during the training of a network affect how well SAEs can decompose their representations (i.e. how entangled / polysemantic the features in those representations are). This is important, because if a network is trained in a way that induces a highly polysemantic representation in its activations, then even the best SAE might struggle to decompose it.</p>
+<p>In this post I do some experiments on toy models to try to test whether some factors (during the training of the toy model), which I hypothesize may reduce incidental polysemanticity, in fact make it easier for an SAE to decompose the representations of a network. Some factors I looked at included: starting with an orthogonal initialization (to reduce chance correlations between features and neurons), using L2 regularization instead of L1 (to reduce winner-take-all effects), using a GELU activation function (to help gradient flow), and adding in noise with positive kurtosis during training (to break up lock-ins between features and neurons).</p>
+<p>Training with L2 regularization leads to significantly less polysemantic features than training with L1 regularization. This suggests that, at least in overcomplete settings, the phrase &quot;sparse = interpretable&quot; maybe should be reversed.</p>
+<h2>What did I do to get these results?</h2>
+<p>At first, the results didn&#39;t make sense. In all configurations, the networks exhibited strong polysemanticity, and, when I tried to train the SAE, I got &quot;dead SAEs&quot;, i.e. the L0 sparsity of the SAE (i.e. the fraction of latent features that fire on an input) was 0.0000. In other words, the SAE only predicted 0 for all inputs, so all the other metrics were meaningless, too.</p>
+<p>The issue was the dying ReLU problem: Because I applied strong L1 regularization (at first, I used λ = 0.01) to the latents of the SAE, and the ReLU returns 0 for all negative inputs (and thus, the gradient is 0), some of the neurons in the SAE died, i.e. they predicted 0 and couldn&#39;t recover because the gradient was 0. I think the issue was exacerbated in my toy setting because, due to the correlated, sparse nature of the data, the activations had a relatively low variance.</p>
+<p>I dealt with the issue by:</p>
+<ol>
+<li>decreasing the value of lambda (to 1e-4, which was high enough to encourage sparsity but low enough to not cause issues - this is in line with what people do when training SAEs on scaled models)</li>
+<li>using LeakyReLU with α = 0.01 in the SAE</li>
+<li>setting the biases of the encoder to small positive values (sampled from a uniform distribution between 0 and 0.1)</li>
+<li>normalizing the activations before passing them through the SAE (i.e. I passed <code>(acts - acts.mean()) / acts.std()</code> through the SAE); and</li>
+<li>training the networks for 2000 epochs (instead of 1000) and the SAE for 1000 epochs (instead of 500).</li>
+</ol>
+<p>In the end, the L0 sparsity of the SAE was between 0.42 and 0.49 in all cases, which is in the recommended range of 0.3 - 0.6 (as it&#39;s a tradeoff between reconstruction and sparsity, see Anthropic&#39;s blogpost on SAEs). Only then, I got sensible signals for polysemanticity.</p>
+<p>To get a strong signal, I made the data &quot;polysemanticity-tempting&quot;, i.e. I grouped the features into groups (by default, I used 8 features, divided into three groups: [0, 1, 2], [3, 4], and [5, 6, 7]) and set it up so that features within groups were highly correlated (by default, between 0.5 and 1.0) and co-activated with 60% probability. I also made the target function depend on the features in a non-linear way (by including non-linearities like products of features, sin, tanh, and products between features from different groups in the target function). Additionally, I set the importances of the features to 0.9<sup>i</sup>, where i is the index of the feature. This helped to increase the signal when using importance-weighted polysemanticity metrics, as the more important features were also the ones where polysemanticity was costly.</p>
+<h2>Experimental Setup</h2>
+<p>I train a 5 layer MLP to predict the targets. The input is the 8 sparse features and the output is the 8 targets. The hidden layer is slightly larger than the input (12) to ensure that polysemanticity is not due to underparameterisation.</p>
+<p>I train the network under a variety of different settings to see which are most effective at mitigating polysemanticity:</p>
+<ul>
+<li><strong>Weight Init:</strong> Default (Random, from normal distribution) vs Orthogonal</li>
+<li><strong>Noise:</strong> Bipolar (Uniform, within 0.1) vs Positive Kurtosis (T-Dist with df = 3)</li>
+<li><strong>Regularisation:</strong> L1 (loss += λ × |weights|) vs L2 (loss += λ × weights²)</li>
+<li><strong>Activation:</strong> ReLU vs GELU (can&#39;t have dying neurons)</li>
+</ul>
+<p>While this gives 16 potential ablational settings, I&#39;m mainly interested in ablating from the baseline settings (Random, Bipolar, L1, ReLU) to the maximum mitigation settings (Orthogonal, Positive Kurtosis, L2, GELU), so I train 8 networks.</p>
+<p>The SAE is overcomplete (<code>d_sae = 16</code>) and is a simple linear encoder (with positive bias) and LeakyReLU activation (12 → 16), followed by a linear decoder (16 → 12). I always use L1 regularisation on the SAE latents, as this is a way of ensuring that the SAE latents are sparse. I train this SAE on the hidden layer of the network after training, in order to decompose the network&#39;s representations. This means that when I&#39;m ablating between L1 and L2 regularisation, I&#39;m ablating the regularisation on the network, not the SAE. This ensures that when I compare the different ways of training the network, I&#39;m using the same method of decomposition.</p>
+<ul>
+<li><strong>Mean Absolute Cosine Similarity (MACS):</strong> the mean of the absolute values of the off-diagonal cosine similarity values for the SAE decoder weights. Lower is better, as it shows that the SAE features are more disentangled.</li>
+<li><strong>Interference:</strong> a weighted version of polysemanticity. ∑<sub>i ≠ j</sub> cos<sup>2</sup>(d<sub>i</sub>, d<sub>j</sub>) × I<sub>i</sub> × I<sub>j</sub>, where I is the importance of each feature. Again, lower is better as it shows that important features aren&#39;t entangled.</li>
+<li><strong>L0 Sparsity:</strong> the fraction of SAE features which are active for a given input (i.e. above a certain threshold). Should be between 0.3 - 0.6 for SAEs.</li>
+<li><strong>Sparsity_W4:</strong> a measure of how peaked the weights are. Higher is better, as it shows that the SAE weights are sparse.</li>
+<li><strong>SAE_MSE:</strong> the MSE of the SAE. This isn&#39;t necessarily a good measure of interpretability, as it just shows how complex the SAE needs to be in order to reconstruct its inputs.</li>
+<li><strong>Train/Val MSE:</strong> the MSE of the network on the training/validation data, for the task of predicting the targets.</li>
+<li><strong>Calibrated_MACS:</strong> the MACS value of the SAE, after being z-scored against 200 permutations of the MACS null distribution, and then sigmoid-normalised to [0, 1]. If the MACS is similar to that expected by chance, this value should be near 0.5.</li>
+</ul>
+<h2>Results: L1 on its own is not enough for overcomplete networks</h2>
+<p>As a baseline, I used Random Init, Bipolar noise, L1 regularization and ReLU activations. The results I got were:</p>
+<div class="table-wrap" role="region" aria-label="Experimental results" tabindex="0"><table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>MACS</td>
+<td>0.2954 ± 0.0294</td>
+</tr>
+<tr>
+<td>Interference</td>
+<td>8.7022 ± 1.4480</td>
+</tr>
+<tr>
+<td>Calibrated_MACS</td>
+<td>0.5085 ± 0.1117</td>
+</tr>
+<tr>
+<td>L0_Sparsity</td>
+<td>0.4365 ± 0.0596</td>
+</tr>
+<tr>
+<td>Train_MSE</td>
+<td>0.0122 ± 0.0032</td>
+</tr>
+<tr>
+<td>Val_MSE</td>
+<td>0.0135 ± 0.0037</td>
+</tr>
+<tr>
+<td>SAE_MSE</td>
+<td>0.9280 ± 0.9801</td>
+</tr>
+</tbody></table></div>
+<p>This was a moderate to high amount of polysemanticity, as shown by the MACS (there’s a lot of off-diagonal cosine similarity), and the interference score (many of the important features are entangled). The calibrated MACS score is basically at chance, which means that the network is only slightly better at separating the features than randomly permuting them. Importantly, the network is still performing well on the task, despite its polysemanticity.</p>
+<p>I found that, surprisingly, training the network with L2 regularization instead of L1 leads to lower polysemanticity of the features. To allow for better gradients I also changed the activation to GELU. The results are as follows:</p>
+<div class="table-wrap" role="region" aria-label="Experimental results" tabindex="0"><table>
+<thead>
+<tr>
+<th></th>
+<th>L1 regularization and ReLU activations (baseline)</th>
+<th>L2 regularization and GELU activations</th>
+<th>Δ %</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>MACS:</td>
+<td>0.2954 ± 0.0294</td>
+<td>0.2627 ± 0.0287</td>
+<td>-11.1%</td>
+</tr>
+<tr>
+<td>Interference:</td>
+<td>8.7022 ± 1.4480</td>
+<td>7.1424 ± 1.1916</td>
+<td>-17.9%</td>
+</tr>
+<tr>
+<td>Train_MSE:</td>
+<td>0.0122 ± 0.0032</td>
+<td>0.0024 ± 0.0025</td>
+<td>-80.3%</td>
+</tr>
+<tr>
+<td>Val_MSE:</td>
+<td>0.0135 ± 0.0037</td>
+<td>0.0051 ± 0.0042</td>
+<td>-62.2%</td>
+</tr>
+<tr>
+<td>SAE_MSE:</td>
+<td>0.9280 ± 0.9801</td>
+<td>1.4357 ± 1.2624</td>
+<td>+54.8%</td>
+</tr>
+<tr>
+<td>L0_Sparsity:</td>
+<td>0.4365 ± 0.0596</td>
+<td>0.4385 ± 0.0558</td>
+<td>+0.5%</td>
+</tr>
+</tbody></table></div>
+<p>I observed a substantial decrease in the polysemanticity of the features when I used L2 instead of L1 regularization (t(16) = 2.1, p = 0.04 for MACS and t(16) = 2.8, p &lt; 0.01 for Interference, Cohen’s d ~1.5–1.6). This is a highly statistically significant decrease, with a very large effect size.</p>
+<p>What’s more, the drop in Interference was achieved while maintaining a similar amount of sparsity, as shown by the L0 norm of the activations. This means that it’s not just that the L2-regularized network has more features overall, but that the features themselves are less polysemantic. Moreover, I observed a huge drop in Train and Validation MSEs, meaning that the network is substantially better at solving the task. The increase in the SAE MSE is likely due to there being more features for it to reconstruct.</p>
+<!-- Unfinished continuation from the rewrite: but since the L0 and the Interference are similar, the S -->
+
+<h3>Result table for all ablations</h3>
+<p>Full results matrix (averaged over 10 seeds)</p>
+<div class="table-wrap" role="region" aria-label="Experimental results" tabindex="0"><table>
+<thead>
+<tr>
+<th>Configuration</th>
+<th>Init method</th>
+<th>Noise dist</th>
+<th>Reg method</th>
+<th>Activation</th>
+<th>MACS</th>
+<th>ΔInterf.</th>
+<th>Train MSE</th>
+<th>Val MSE</th>
+<th>L0</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1 (baseline)</td>
+<td>Random</td>
+<td>Bipolar</td>
+<td>L1</td>
+<td>ReLU</td>
+<td>0.295</td>
+<td>8.70 (0%)</td>
+<td>0.0122</td>
+<td>0.0135</td>
+<td>0.437</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Orthogonal</td>
+<td>Bipolar</td>
+<td>L1</td>
+<td>ReLU</td>
+<td>0.284</td>
+<td>8.11 (-6.8%)</td>
+<td>0.0044</td>
+<td>0.0078</td>
+<td>0.439</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Random</td>
+<td>PosKurt</td>
+<td>L1</td>
+<td>ReLU</td>
+<td>0.306</td>
+<td>9.11 (+4.7%)</td>
+<td>0.0133</td>
+<td>0.0152</td>
+<td>0.416</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Random</td>
+<td>Bipolar</td>
+<td>L2</td>
+<td>GELU</td>
+<td>0.263</td>
+<td>7.14 (-17.9%)</td>
+<td>0.0024</td>
+<td>0.0051</td>
+<td>0.439</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Orthogonal</td>
+<td>Bipolar</td>
+<td>L2</td>
+<td>GELU</td>
+<td>0.252</td>
+<td>6.49 (-25.4%)</td>
+<td>0.0020</td>
+<td>0.0046</td>
+<td>0.453</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Orthogonal</td>
+<td>PosKurt</td>
+<td>L1</td>
+<td>ReLU</td>
+<td>0.285</td>
+<td>8.30 (-4.6%)</td>
+<td>0.0045</td>
+<td>0.0076</td>
+<td>0.452</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Random</td>
+<td>PosKurt</td>
+<td>L2</td>
+<td>ReLU</td>
+<td>0.284</td>
+<td>8.35 (-4.1%)</td>
+<td>0.0032</td>
+<td>0.0058</td>
+<td>0.491</td>
+</tr>
+<tr>
+<td>8 (max.mit.)</td>
+<td>Orthogonal</td>
+<td>PosKurt</td>
+<td>L2</td>
+<td>GELU</td>
+<td>0.249</td>
+<td>6.37 (-26.8%)</td>
+<td>0.0021</td>
+<td>0.0048</td>
+<td>0.454</td>
+</tr>
+</tbody></table></div>
+<p>L2 consistently has lower Interference (6.4 to 8.4) than L1 (8.1 to 9.1)</p>
+<p>There seems to be some synergy between Orthogonal and L2+GELU (Config #5, 25.4% lower Interference). Overall, the maximum mitigation is achieved with Config #8, which reduces Interference by 26.8% (t=2.8, p&lt;0.01)</p>
+<p>Surprisingly, while positive kurtosis increases polysemanticity in combination with L1 (+4.7%, config #3), it seems to reduce polysemanticity in combination with L2 (-26.8%, config #8)</p>
+<!-- Unfinished fragment from the rewrite: How much do -->
+
+<h2>Analysis: Why does L2 lead to lower polysemanticity?</h2>
+<h3>A Winner-Take-All Dynamic</h3>
+<p>A good intuition for why L1 Regularization leads to incidental polysemanticity (predicted in Lecomte et al. 2023) is that, in a setup with capacity larger than the number of features, it induces a Winner-Take-All dynamic.</p>
+<p>Because the gradient of the L1 norm is discontinuous (∇(λ‖w‖<sub>1</sub>) = λ sign(w), jumping from − λ to λ at w = 0), it encourages the weights to take extreme values (strongly negative, strongly positive, or exactly 0).</p>
+<p>Because the latent space is of dimension 12 and features are 8-dimensional, this leads to a Winner-Take-All dynamic where some neurons (the winners) will encode multiple features, and some others (the losers) will have their weights driven to zero by L1 regularization.</p>
+<p>This interpretation seems correct, as the configs with L1 regularization have much higher Interference scores (between 8.1 and 9.1), despite having a similar (even lower) L0 norm (between 0.42 and 0.49). Furthermore, they have a higher train MSE (between 0.012 and 0.013), suggesting that they get stuck in suboptimal local minima. Indeed, the high variance of the SAE_MSE for those configs hints that there are many local minima.</p>
+<p>This seems paradoxical, because it&#39;s often thought that L1 regularization would lead to more interpretable networks. However, in an overcomplete setting, encouraging sparsity seems to just increase polysemanticity (because there are fewer neurons to encode the same number of concepts).</p>
+<h3>Why L2 Regularization does not lead to polysemanticity</h3>
+<p>Because the gradient of the L2 norm is linear (∇(λ‖w‖<sub>2</sub><sup>2</sup>) = 2λw), it leads to a more convex-ish optimization landscape and encourages more distributed solutions.</p>
+<p>This prevents the emergence of a Winner-Take-All dynamic, as the regularization just encourages all weights to be smaller.</p>
+<p>The configs with L2 Regularization have the lowest Interference scores (between 6.4 and 7.1), as well as the lowest train MSEs (between 0.002 and 0.003) and val MSEs (between 0.005 and 0.006), showing that the network optimizes better. Additionally, the L0 norms are higher for those configs (between 0.44 and 0.49), meaning that many neurons have non-zero weights and are dedicated to only one feature. Finally, those configs show low variance across different seeds, meaning they all converge to the same basin of attraction.</p>
+<p>It is interesting to note that, in an overcomplete setting, encouraging a distributed solution seems to lead to more interpretable networks.</p>
+<p>It is interesting to note the different boundary conditions that arise in orthogonal initialization:</p>
+<p>With L2 Weight Regularization (Config #5), orthogonal init acts in synergy (eigenvalues of orthogonal matrices are 1, perfect conditioning for gradient flow), giving great results (-25.4% Interference and -83.6% Train MSE).</p>
+<p>With L1 Weight Regularization (Config #6), orthogonal init acts in antagonism (orthogonal structure distributes activations more evenly among the weights, while L1 weight reg tries to make them sparse), causing catastrophic dynamics (SAE_MSE std err of 4.62, larger than the mean of 4.17). The weights also become extremely peaked (Sparsity_W4 increased by 91%, from 0.053 in Random Init + L1 Weight Reg. (Config #1) to 0.101 in Orthogonal Init + L1 Weight Reg. (Config #6)), which destabilizes the SAE reconstruction.</p>
+<p>It is also interesting to note the different boundary conditions that arise in positive kurtosis noise:</p>
+<p>With L1 Weight Regularization (Config #3), positive kurtosis was harmful (MACS increased by 3.6% and Interference increased by 4.7%). Perhaps, the extreme activations activated multiple features (polysemantic neurons), which then became fixed due to the winner-take-all dynamics of L1.</p>
+<p>With L2 Weight Regularization (Config #8), positive kurtosis showed a marginal improvement (Interference decreased by 1.8%, compared to Config #5). Perhaps, the extreme activations helped explore more, and this helped, since L2 had the appropriate smooth regularization, unlike L1, to take advantage of it and not get locked in.</p>
+<p>This suggests that simply disrupting the training dynamics is not sufficient; it is also important to have the appropriate smooth regularization to take advantage of it.</p>
+<h2>Discussion: Implications and Limitations</h2>
+<h3>Implications for the Interpretability Research Field</h3>
+<p>My results suggest that the assumption that increasing sparsity increases interpretability may be false, at least in the case of overcomplete SAEs. I observed that L1 weight regularization, which increases sparsity, actually increases Interference (+17.9%), implying that it increases polysemanticity, while L2 weight regularization, which is denser, decreases Interference, implying that it decreases polysemanticity.</p>
+<p>Of course, I only tested overcomplete SAEs, where <code>latent_dim &gt; feature_dim</code>. It may be the case that for undercomplete SAEs, where <code>latent_dim &lt; feature_dim</code>, L1 weight regularization can be beneficial, as it can force the weights to learn certain features. It is only when there are enough latent dimensions to learn all the features, that the winner-take-all dynamics of L1 weight regularization can be pathological.</p>
+<p>How you train your network matters as much as what kind of SAE you train, and most SAE research only focuses on the latter (looking for better decompositions like TopK, JumpReLU, Gated SAEs, etc). In order to fix polysemanticity, we may need to fix how we train our models, because even the best SAEs in the world can only do so much if the model&#39;s internal representations are polysemantic.</p>
+<p>If you&#39;re trying to take action on this post and train your own interpretable model, here&#39;s a few tips:</p>
+<ul>
+<li>Try training your network with an L2 weight decay penalty, or maybe an elastic net (L1+L2) penalty where the L2 is stronger.</li>
+<li>If you&#39;re using an L2, feel free to use orthogonal initialization, but if you&#39;re using an L1, do not use orthogonal initialization.</li>
+<li>Try using activation functions that result in smoother activations (like GELU or SiLU).</li>
+<li>If you&#39;re noticing bistability (high variance between SAEs trained with different seeds), this could be a sign of antagonistic training dynamics.</li>
+</ul>
+<h3>Comparison to Existing Work</h3>
+<p>Lecomte et al. 2023 predicts that L1 regularization will lead to more incidental polysemanticity due to the winner-take-all dynamics, but as far as I&#39;m aware this is the first time anyone has trained the exact same network twice, once with an L1 and once with an L2, to directly compare and quantify this effect (-17.9% Interference, p &lt; 0.01).</p>
+<p>Anthropic&#39;s work on SAEs (Bricken et al. 2023, Templeton et al. 2024) uses an L1 penalty, which seems at odds with my findings about fighting polysemanticity. However, they&#39;re also using more advanced SAE architectures like JumpReLUs and TopK SAEs, which may resolve the L1 regularization paradox in a different way. It&#39;d be interesting to directly compare.</p>
+<p>For this work, I only used vanilla LeakyReLU SAEs. There are a number of new SAE techniques (TopK, JumpReLU, Gated, etc) that are able to reconstruct the latent space better at the same level of sparsity. It&#39;d be interesting to see how training a network with an L2 compares to using these SAE methods.</p>
+<h3>Limitations</h3>
+<p>This is obviously a toy model, and there are a number of limitations you should be wary of:</p>
+<p>The data is synthetic and I specifically designed it to have correlated features. In a real LLM you can&#39;t just turn up the correlations knob, but this may be applicable in settings where you&#39;d expect a lot of correlated features (like the words &quot;car&quot; and &quot;road&quot;) or if the correlations appear somewhat accidentally during training.</p>
+<p>I use a lot of overcapacity in my SAEs (16 latents to represent 8 features, which is 2x overcomplete, and the hidden layer has 12 dimensions which is also larger than the 8 features). This may not be as much of an issue in practice, since when people train SAEs on LLMs they&#39;ll usually make them 4-8x more complete.</p>
+<p>It&#39;s unclear if this applies to LLMs. I would love if someone tested this! Given that LLMs are trained with L1 regularization (weight decay) and this mechanism seems pretty basic, I&#39;d expect it to, but it&#39;d be good to see.</p>
+<p>Some caveats: I use a somewhat silly way of decaying the importance of features (0.9<sup>i</sup>), real models probably have a more power law like distribution of feature importance; I don&#39;t look at whether the features are qualitatively better, I just use a bunch of proxies for polysemanticity (Interference, MACS); I use a vanilla SAE architecture (LeakyReLU), rather than the current state-of-the-art (TopK / JumpReLU / Gated); the metric Calibrated_MACS is pretty noisy (std 0.14 and mean ~0.5, so it&#39;s not much better than chance at telling the difference between features), I could probably improve it by sampling more than 200 permutations, but that&#39;s a lot of vectors in a 16D space, so it&#39;d need some thought as to how to do it.</p>
+<h3>Things I&#39;m not claiming</h3>
+<ul>
+<li>That L1 is bad in general, just that it seems to be in this toy overcomplete setting</li>
+<li>That this applies to LLMs, I haven&#39;t tried it there and it may or may not</li>
+<li>That we shouldn&#39;t use L1 regularization for the SAE, just the network (I do use it for the SAE)</li>
+<li>That L2 regularization is the solution to polysemanticity, just that it may be one piece of the puzzle (although as others have noted, using a modern SAE architecture may be just as important)</li>
+</ul>
+<h3>Things I am claiming:</h3>
+<ul>
+<li>That training the network with L2 regularization seems to reduce polysemanticity in this toy model, relative to L1</li>
+<li>That the mechanism (WTA vs distributed) seems to be in line with my theory</li>
+<li>That it&#39;s worth looking into this more on real models</li>
+</ul>
+<h3>Some ideas for further investigations</h3>
+<ul>
+<li>One idea is to use PEFT techniques to train an LLM (like Llama) on a dataset similar to the one I used here, and see if the polysemanticity of the features is different when I use L1 vs L2 regularization on the LoRA adapters. This would be a more realistic setting, and would let me investigate the effect of regularization on polysemanticity without worrying about catastrophic forgetting.</li>
+<li>Whether the combination of L2 regularization and a modern SAE architecture (like TopK or JumpReLU) is better than either alone</li>
+<li>Doing a sweep over the value of lambda for L1 and L2 regularization, to see if there&#39;s a value that minimizes polysemanticity</li>
+<li>Qualitatively comparing the features learned by the SAE when I use L1 vs L2 regularization, to see if the features are more interpretable in one case vs the other</li>
+<li>Using Anthropic&#39;s toy model to see if I can get the SAE to learn the &quot;ground truth&quot; features</li>
+</ul>
+<h3>Other things I want to explore in the longer term:</h3>
+<ul>
+<li>Does this scale to more complex data and larger networks (e.g. billion parameter models)?</li>
+<li>How does this interact with other network properties (learning rate, batch size, etc.)?</li>
+<li>Can I get the benefits of both L1 and L2 regularization by tuning the L1:L2 ratio (similar to elasticnet regularization)?</li>
+<li>How do the effects of L1/L2 regularization interact with the (probability) distribution of feature importances (in real models, feature importances are likely to be power-law distributed)?</li>
+</ul>
+<h2>Conclusion</h2>
+<p>In this post I&#39;ve explored how training conditions affect the polysemanticity of learned representations in toy models. Specifically, I&#39;ve demonstrated that L2 regularized networks have 17.9% less entanglement between features compared to L1 regularized networks (t = 2.8, p &lt; 0.01). This is counterintuitive because in the SAE community there&#39;s an implicit assumption that &quot;sparse = more interpretable&quot;, especially in the overcomplete setting.</p>
+<p>L1 regularization induces winner-take-all dynamics due to its discontinuous gradients, which leads to a small number of neurons becoming polysemantic. L2 regularization encourages a more distributed representation due to its smooth gradients, which means a large number of neurons end up each specialised to a single feature. Orthogonal weight initialisation synergises with L2 regularization (by keeping the representation distributed), and antagonises L1 regularization (by preventing WTA dynamics).</p>
+<p>It&#39;s unclear whether these findings generalise to real LLMs, as there are a lot of arbitrary choices I&#39;ve made in constructing the toy model (e.g. the level of overcapacity, the type of data, etc.). However, I think the mechanistic understanding I&#39;ve developed here (WTA dynamics due to L1, smooth activations due to L2, interactions between weight initialisation and regularisation, etc.) could be leveraged by future researchers to find better ways of training toy models (and maybe LLMs) to be less polysemantic.</p>
+<p>I think a combination of (1) better SAE architectures (e.g. TopK SAEs, JumpReLU activation, etc.) to decompose polysemantic representations, and (2) better model training techniques to minimise polysemanticity in the first place, are both needed to make progress in the field of mechanistic interpretability.</p>
+<p>If anyone is interested in exploring this further, all the code, data, etc. used for this post is available here: <a href="https://github.com/stanleyngugi/taming_polysemanticity">github.com/stanleyngugi/taming_polysemanticity</a>. Would love to hear any feedback on this post!</p>
+<h2>Acknowledgments</h2>
+<p>Thanks to the mechanistic interpretability community for foundational work on SAEs and toy models. This research builds directly on Lecomte et al.&#39;s incidental polysemanticity theory and Anthropic&#39;s dictionary learning approaches.</p>
 
-                <h2>Motivation: Why Study Network Training Factors?</h2>
-
-                <p>Polysemanticity—where individual neurons encode multiple unrelated features—is a fundamental challenge in mechanistic interpretability (MI). A neuron that activates for both "cars" and "adversarial patterns" makes models harder to audit and potentially hides safety-relevant behaviors. While the classic explanation attributes polysemanticity to "superposition" (compressing more features than available dimensions), recent work by Lecomte et al. (2023) shows it can arise "incidentally" even in overcapacity regimes, driven by training dynamics like regularization inducing winner-take-all effects or noise creating chance correlations.</p>
-
-                <p>Most SAE research focuses on improving decomposition architectures—TopK SAEs, JumpReLU SAEs, Gated SAEs—to better extract features from already-trained models. But what if polysemanticity is baked in during network training itself? If the base model's training process creates entangled representations, even perfect SAEs will struggle to disentangle them.</p>
-
-                <p>This post explores that question through toy model experiments. I test whether training factors hypothesized to reduce incidental polysemanticity—orthogonal initialization (minimizing initial feature collisions), L2 regularization (promoting distributed representations over L1's winner-take-all), GELU activation (preserving gradient flow), and positive kurtosis noise (disrupting lock-ins)—actually reduce feature entanglement as measured by SAE decomposition.</p>
-
-                <p>The surprising finding: Networks trained with L2 regularization produce significantly less polysemantic features than L1-trained networks, despite L1 being the standard choice for promoting interpretability through sparsity. This suggests that in overcomplete settings, the conventional wisdom "sparse equals interpretable" may be backwards.</p>
-
-                <h2>The Experimental Journey: From Dead SAEs to Working Signals</h2>
-
-                <p>This wasn't a clean, linear process. Initial runs hit a wall: "dead SAEs" where L0 sparsity (fraction of active latent features) collapsed to 0.0000 across all configurations. The SAE was outputting zeros for everything, making all metrics meaningless.</p>
-
-                <p>The culprit: Dying ReLU problem. With strong L1 regularization (initial lambda=0.01) on SAE latents, ReLU activations went to zero for negative inputs, gradients vanished, and neurons got trapped in a "dead state" with no recovery path. This is exacerbated in toy models with low-variance activations from sparse, correlated data.</p>
-
-                <p>The fix involved several changes:</p>
-
-                <ul>
-                    <li>Lowered lambda to 1e-4 (balancing sparsity without overkill, following scaled SAE practices)</li>
-                    <li>Switched to LeakyReLU (alpha=0.01) in the SAE to allow small negative gradients</li>
-                    <li>Added positive encoder biases (uniform 0-0.1) to initialize activations in firing range</li>
-                    <li>Normalized activations before SAE input ((acts - mean)/std) to boost variance</li>
-                    <li>Increased training epochs (1000→2000 for network, 500→1000 for SAE) to ensure convergence</li>
-                </ul>
-
-                <p>These changes revived L0 sparsity to 0.42-0.49 across configurations—precisely in the optimal range (0.3-0.6) reported by Anthropic for balancing reconstruction fidelity and sparsity. With healthy SAE learning, genuine polysemanticity signals could finally emerge.</p>
-
-                <p>Data design amplified signals: I created synthetic data with deliberate "polysemantic temptation"—8 features grouped into 3 clusters ([0-2], [3-4], [5-7]) with 60% intra-group co-activation probability and correlation strengths of 0.5-1.0. Targets used non-linear interactions (products, sin, tanh, cross-group terms) to force the network to learn relational structure. Feature importances decayed exponentially (0.9^i) to emphasize early features, amplifying polysemanticity costs in weighted metrics.</p>
-
-                <h2>Experimental Setup</h2>
-
-                <h3>Architecture</h3>
-
-                <p><strong>Network:</strong> 5-layer MLP mapping 8 sparse features → 12D hidden representation → 8 outputs. The overcapacity (12D hidden &gt; 8D features) ensures polysemanticity arises from training dynamics, not capacity constraints.</p>
-
-                <p>Training ablations tested 4 factors:</p>
-
-                <ul>
-                    <li><strong>Initialization:</strong> Random (Gaussian) vs Orthogonal (preserves norms, minimizes initial feature overlap)</li>
-                    <li><strong>Noise:</strong> Bipolar (uniform ±0.1) vs Positive Kurtosis (t-distribution df=3, heavy tails)</li>
-                    <li><strong>Regularization:</strong> L1 (λ * |weights|) vs L2 (λ * weights²)</li>
-                    <li><strong>Activation:</strong> ReLU vs GELU (smooth, no dying neurons)</li>
-                </ul>
-
-                <p>This yields 2⁴ = 16 possible combinations, but I focused on 8 strategic ablations from baseline (Random+Bipolar+L1+ReLU) to maximum mitigation (Orthogonal+PosKurt+L2+GELU).</p>
-
-                <p><strong>SAE:</strong> Overcomplete (d_sae=16 &gt; d_hidden=12) to test decomposition in high-capacity regime. Architecture: Linear encoder (12→16) with positive bias, LeakyReLU, Linear decoder (16→12). The SAE always uses L1 regularization on latents (standard for inducing sparsity). The SAE is trained after the network converges to decompose whatever representations the network learned.</p>
-
-                <p><strong>Key point:</strong> The L1 vs L2 ablation varies the network's regularization during training, not the SAE's. The SAE decomposition is held constant to fairly compare network training methods.</p>
-
-                <h3>Metrics</h3>
-
-                <ul>
-                    <li><strong>MACS (Mean Absolute Cosine Similarity):</strong> Average of absolute off-diagonal cosines in the SAE decoder weight matrix. Measures feature overlap—lower values indicate more disentangled features.</li>
-                    <li><strong>Interference:</strong> Weighted polysemanticity cost: Σᵢ≠ⱼ cos²(dᵢ, dⱼ) × Iᵢ × Iⱼ, where I are feature importances. Penalizes entanglement of important features more heavily.</li>
-                    <li><strong>L0 Sparsity:</strong> Fraction of SAE latents active (&gt;threshold) per input. Healthy range: 0.3-0.6 for SAEs.</li>
-                    <li><strong>Sparsity_W4:</strong> Measures peakedness of weight distributions (higher = more concentrated, sparse structure).</li>
-                    <li><strong>SAE_MSE:</strong> Reconstruction error of SAE. Not a direct interpretability metric—measures reconstruction complexity.</li>
-                    <li><strong>Train/Val MSE:</strong> Network task performance on target prediction.</li>
-                    <li><strong>Calibrated_MACS:</strong> MACS z-scored against 200 null permutations, then sigmoid-normalized to [0,1]. Values near 0.5 indicate chance-level structure.</li>
-                </ul>
-
-                <p>All experiments ran for 10 random seeds to estimate variance. Statistical tests used two-sample t-tests comparing baseline to mitigation configurations.</p>
-
-                <h2>Results: The L1 Paradox in Overcomplete Networks</h2>
-
-                <h3>Baseline: High Polysemanticity by Design</h3>
-
-                <p>The baseline configuration (Random init + Bipolar noise + L1 reg + ReLU activation) established our reference:</p>
-
-                <pre><code>MACS:            0.2954 ± 0.0294
-Interference:    8.7022 ± 1.4480
-Calibrated_MACS: 0.5085 ± 0.1117
-L0_Sparsity:     0.4365 ± 0.0596
-Train_MSE:       0.0122 ± 0.0032
-Val_MSE:         0.0135 ± 0.0037
-SAE_MSE:         0.9280 ± 0.9801</code></pre>
-
-                <p>This represents a moderate-to-high polysemanticity regime. MACS of 0.30 indicates substantial off-diagonal cosine similarities (features overlap). Interference of 8.70 confirms this isn't random—important features are systematically entangled. Calibrated_MACS near 0.5 (chance level) shows the network barely outperforms random permutations in organizing features cleanly.</p>
-
-                <p>Critically, the network achieves reasonable task performance (Train MSE 0.012) despite the polysemanticity, suggesting the entanglement isn't necessary for the task—it's an artifact of training dynamics.</p>
-
-                <h3>Key Finding: L2 Outperforms L1 for Disentanglement</h3>
-
-                <p>Switching only the network's regularization from L1 to L2 (keeping Random init, Bipolar noise, but changing activation to GELU for smooth gradients):</p>
-
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th></th>
-                                <th>L1 (Baseline)</th>
-                                <th>L2+GELU</th>
-                                <th>Δ%</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>MACS:</td>
-                                <td>0.2954</td>
-                                <td>0.2627</td>
-                                <td>-11.1%</td>
-                            </tr>
-                            <tr>
-                                <td>Interference:</td>
-                                <td>8.7022</td>
-                                <td>7.1424</td>
-                                <td>-17.9%</td>
-                            </tr>
-                            <tr>
-                                <td>Train_MSE:</td>
-                                <td>0.0122</td>
-                                <td>0.0024</td>
-                                <td>-80.3%</td>
-                            </tr>
-                            <tr>
-                                <td>Val_MSE:</td>
-                                <td>0.0135</td>
-                                <td>0.0051</td>
-                                <td>-62.2%</td>
-                            </tr>
-                            <tr>
-                                <td>SAE_MSE:</td>
-                                <td>0.9280</td>
-                                <td>1.4357</td>
-                                <td>+54.8%</td>
-                            </tr>
-                            <tr>
-                                <td>L0_Sparsity:</td>
-                                <td>0.4365</td>
-                                <td>0.4385</td>
-                                <td>+0.5%</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <p>The L1 paradox: Despite L1 being the standard choice for promoting interpretability through sparsity, L2-trained networks produced 17.9% less polysemantic features (t=2.1, p=0.04 for MACS; t=2.8, p&lt;0.01 for Interference). This is highly statistically significant with large effect sizes (Cohen's d ≈ 1.5-1.6).</p>
-
-                <p>The trade-off is inverted: L2 simultaneously achieves:</p>
-
-                <ul>
-                    <li>Better task performance (-80% Train MSE, -62% Val MSE)</li>
-                    <li>Lower polysemanticity (-18% Interference)</li>
-                    <li>Similar sparsity levels (L0 nearly identical: 0.44 vs 0.44)</li>
-                </ul>
-
-                <p>The cost? SAE reconstruction complexity rises 55% (SAE_MSE). But this is because L2 produces more features to reconstruct, not because features are worse. With similar L0 but lower Interference, L2 features are individually clearer but collectively more numerous, making the SAE's job harder numerically but easier semantically.</p>
-
-                <h3>Full Ablation Results</h3>
-
-                <p>Here's the complete matrix (averages over 10 seeds):</p>
-
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Config</th>
-                                <th>Init</th>
-                                <th>Noise</th>
-                                <th>Reg</th>
-                                <th>Act</th>
-                                <th>MACS</th>
-                                <th>Δ Interf</th>
-                                <th>Train_MSE</th>
-                                <th>Val_MSE</th>
-                                <th>L0</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>1 (Baseline)</td>
-                                <td>Random</td>
-                                <td>Bipolar</td>
-                                <td>L1</td>
-                                <td>ReLU</td>
-                                <td>0.295</td>
-                                <td>8.70 (0%)</td>
-                                <td>0.0122</td>
-                                <td>0.0135</td>
-                                <td>0.437</td>
-                            </tr>
-                            <tr>
-                                <td>2</td>
-                                <td>Orthogonal</td>
-                                <td>Bipolar</td>
-                                <td>L1</td>
-                                <td>ReLU</td>
-                                <td>0.284</td>
-                                <td>8.11 (-6.8%)</td>
-                                <td>0.0044</td>
-                                <td>0.0078</td>
-                                <td>0.439</td>
-                            </tr>
-                            <tr>
-                                <td>3</td>
-                                <td>Random</td>
-                                <td>PosKurt</td>
-                                <td>L1</td>
-                                <td>ReLU</td>
-                                <td>0.306</td>
-                                <td>9.11 (+4.7%)</td>
-                                <td>0.0133</td>
-                                <td>0.0152</td>
-                                <td>0.416</td>
-                            </tr>
-                            <tr>
-                                <td>4</td>
-                                <td>Random</td>
-                                <td>Bipolar</td>
-                                <td>L2</td>
-                                <td>GELU</td>
-                                <td>0.263</td>
-                                <td>7.14 (-17.9%)</td>
-                                <td>0.0024</td>
-                                <td>0.0051</td>
-                                <td>0.439</td>
-                            </tr>
-                            <tr>
-                                <td>5</td>
-                                <td>Orthogonal</td>
-                                <td>Bipolar</td>
-                                <td>L2</td>
-                                <td>GELU</td>
-                                <td>0.252</td>
-                                <td>6.49 (-25.4%)</td>
-                                <td>0.0020</td>
-                                <td>0.0046</td>
-                                <td>0.453</td>
-                            </tr>
-                            <tr>
-                                <td>6</td>
-                                <td>Orthogonal</td>
-                                <td>PosKurt</td>
-                                <td>L1</td>
-                                <td>ReLU</td>
-                                <td>0.285</td>
-                                <td>8.30 (-4.6%)</td>
-                                <td>0.0045</td>
-                                <td>0.0076</td>
-                                <td>0.452</td>
-                            </tr>
-                            <tr>
-                                <td>7</td>
-                                <td>Random</td>
-                                <td>PosKurt</td>
-                                <td>L2</td>
-                                <td>ReLU</td>
-                                <td>0.284</td>
-                                <td>8.35 (-4.1%)</td>
-                                <td>0.0032</td>
-                                <td>0.0058</td>
-                                <td>0.491</td>
-                            </tr>
-                            <tr>
-                                <td>8 (Max)</td>
-                                <td>Orthogonal</td>
-                                <td>PosKurt</td>
-                                <td>L2</td>
-                                <td>GELU</td>
-                                <td>0.249</td>
-                                <td>6.37 (-26.8%)</td>
-                                <td>0.0021</td>
-                                <td>0.0048</td>
-                                <td>0.454</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <p>Key patterns:</p>
-
-                <ul>
-                    <li>L2 configs (#4, 5, 7, 8) consistently show lower Interference (6.4-8.4 range vs 8.1-9.1 for L1)</li>
-                    <li>Orthogonal + L2 + GELU synergize (#5: -25.4% Interference)</li>
-                    <li>Maximum mitigation (#8) achieves -26.8% Interference with t=2.8, p&lt;0.01</li>
-                    <li>Positive kurtosis alone (#3) worsens polysemanticity (+4.7% Interference) but helps when paired with L2 (#8: -26.8%)</li>
-                </ul>
-
-                <h3>Variance Analysis: Stability Across Seeds</h3>
-
-                <p>Not all metrics are equally stable:</p>
-
-                <p><strong>Robust (CV &lt; 15%):</strong></p>
-
-                <ul>
-                    <li>MACS: 6-14% variation—polysemanticity is reproducible</li>
-                    <li>Interference: 9-23%—weighted cost is stable signal</li>
-                    <li>L0_Sparsity: 7-15%—active fraction consistent</li>
-                </ul>
-
-                <p><strong>Moderate (CV 15-30%):</strong></p>
-
-                <ul>
-                    <li>Calibrated_MACS: 17-29%—noisy from permutation sampling</li>
-                    <li>Train/Val MSE: 14-42%—depends on optimization trajectories</li>
-                </ul>
-
-                <p><strong>Volatile (CV &gt; 50%):</strong></p>
-
-                <ul>
-                    <li>SAE_MSE: 50-492%—extremely unstable in some configs</li>
-                    <li>Sparsity_W4: 12-381%—seed-dependent weight distributions</li>
-                </ul>
-
-                <p>The bistability signature: Orthogonal+PosKurt+L1 (#6) shows SAE_MSE = 4.17 ± 4.62 (std &gt; mean!). This indicates competing attractors—some seeds fall into good basins with low reconstruction error, others collapse catastrophically. This is evidence of antagonism between orthogonal structure and L1 sparsity pressure.</p>
-
-                <p>In contrast, Orthogonal+L2 configs show SAE_MSE = 0.96 ± 0.67 (CV = 70%, much lower), indicating a stable, unimodal optimization landscape.</p>
-
-                <h2>Analysis: Why Does L2 Reduce Polysemanticity?</h2>
-
-                <h3>The Winner-Take-All Mechanism</h3>
-
-                <p>Lecomte et al. (2023) predicted that L1 regularization causes incidental polysemanticity through winner-take-all (WTA) dynamics in overcapacity networks. Here's the mechanism validated by our results:</p>
-
-                <p><strong>L1's gradient is discontinuous:</strong> ∇(λ||w||₁) = λ·sign(w). At zero, the gradient flips from -λ to +λ, creating sharp thresholds. During training, this favors extreme solutions—weights driven strongly positive, strongly negative, or exactly zero.</p>
-
-                <p><strong>In overcapacity settings (12D hidden &gt; 8D features), L1 creates competition:</strong> With more neurons than necessary, L1's sparsity pressure forces neurons to compete. A few "winners" capture multiple features (becoming polysemantic), while "losers" are driven to zero.</p>
-
-                <p><strong>Evidence in the numbers:</strong></p>
-
-                <ul>
-                    <li>L1 configs have higher Interference (8.1-9.1) despite lower or equal L0 (0.42-0.49)</li>
-                    <li>Train MSE is higher with L1 (0.012-0.013 vs 0.002-0.003 for L2)—stuck in suboptimal minima</li>
-                    <li>High variance in SAE_MSE for L1 configs suggests multiple competing local minima</li>
-                </ul>
-
-                <p><strong>Why this is paradoxical:</strong> L1 is supposed to improve interpretability by enforcing sparsity. But in overcomplete settings, the sparsity creates polysemanticity—fewer active neurons must encode more concepts.</p>
-
-                <h3>L2's Smooth Alternative</h3>
-
-                <p>L2 regularization escapes the WTA trap through fundamentally different mechanics:</p>
-
-                <p><strong>L2's gradient is smooth:</strong> ∇(λ||w||₂²) = 2λw. Linear everywhere, no discontinuities. This creates a convex-ish landscape that encourages distributed solutions.</p>
-
-                <p><strong>No competition, just shrinkage:</strong> L2 uniformly shrinks all weights toward zero proportional to their magnitude. There's no pressure for winner-take-all—all neurons contribute, just at reduced scale.</p>
-
-                <p><strong>Evidence in the numbers:</strong></p>
-
-                <ul>
-                    <li>L2 configs achieve lowest Interference (6.4-7.1)</li>
-                    <li>Train/Val MSE dramatically lower (0.002-0.003 train, 0.005-0.006 val)—better optimization</li>
-                    <li>L0 stays high (0.44-0.49)—many neurons active, each specialized</li>
-                    <li>Low variance across seeds—stable convergence to single basin</li>
-                </ul>
-
-                <p><strong>The key insight:</strong> In overcomplete settings, distributed representations are more interpretable than sparse ones. Each neuron encodes one clear feature at moderate strength, rather than a few neurons encoding everything.</p>
-
-                <h3>Orthogonal Initialization's Dual Role</h3>
-
-                <p>Orthogonal initialization provides interesting boundary conditions:</p>
-
-                <p><strong>With L2 (Config #5): Synergistic.</strong> Orthogonal matrices have unit eigenvalues, providing perfect conditioning for gradient flow. L2's smooth landscape benefits maximally from this, achieving -25.4% Interference and -83.6% Train MSE.</p>
-
-                <p><strong>With L1 (Config #6): Antagonistic.</strong> Orthogonal structure distributes activations evenly by design. L1 wants to sparsify aggressively. They fight, creating bistable dynamics with catastrophic variance (SAE_MSE std = 4.62 &gt; mean = 4.17).</p>
-
-                <p><strong>The numerical signature:</strong> Sparsity_W4 jumps from 0.053 (Random+L1) to 0.101 (Orthogonal+L1), a +91% increase. Orthogonal init forces weight distributions to have extreme peaks because the orthogonal structure pre-orients weights, then L1 hammers them into sharp sparsity. This extreme peakedness destabilizes SAE reconstruction.</p>
-
-                <h3>The Role of Positive Kurtosis Noise</h3>
-
-                <p>Positive kurtosis (heavy-tailed t-distribution) was hypothesized to disrupt lock-ins through stochastic kicks. The results are context-dependent:</p>
-
-                <p><strong>With L1 (Config #3): Harmful.</strong> MACS +3.6%, Interference +4.7%. The heavy tails create rare extreme activations that force neurons into polysemantic roles, then L1's WTA dynamics lock them in.</p>
-
-                <p><strong>With L2 (Config #8): Marginal benefit.</strong> Interference -1.8% vs Config #5. The tails add exploration, but L2's smoothing prevents lock-in. The system samples useful diversity without collapsing.</p>
-
-                <p><strong>Interpretation:</strong> Disruption alone doesn't help—you need smooth regularization to make productive use of it.</p>
-
-                <h2>Discussion: Implications and Limitations</h2>
-
-                <h3>What This Means for Interpretability Research</h3>
-
-                <p><strong>Challenge to conventional wisdom:</strong> The assumption "sparse = interpretable" may be backwards in overcomplete regimes. Our results show L1 sparsity increases polysemanticity (+17.9% Interference), while L2 density reduces it.</p>
-
-                <p><strong>The boundary condition matters:</strong> This finding is specific to overcomplete settings (latent_dim &gt; feature_dim). In undercomplete or exact-capacity regimes, L1 likely still helps by forcing clear feature allocation. The paradox emerges when there's excess capacity—L1's WTA dynamics become pathological.</p>
-
-                <p><strong>Network training matters as much as SAE architecture:</strong> Most SAE research optimizes decomposition methods (TopK, JumpReLU, Gated SAEs). Our work suggests fixing polysemanticity requires fixing model training. Even perfect SAEs struggle with representations baked-in as polysemantic.</p>
-
-                <p><strong>Actionable takeaway:</strong> When training models you plan to interpret, consider:</p>
-
-                <ul>
-                    <li>L2 or elastic net (L1+L2 with L2 dominant) for network regularization</li>
-                    <li>Orthogonal initialization only with L2, never with L1 alone</li>
-                    <li>Smooth activations (GELU, SiLU) to preserve gradient flow</li>
-                    <li>Monitor for bistability (high SAE variance across seeds) as diagnostic of antagonistic training dynamics</li>
-                </ul>
-
-                <h3>Comparison to Existing Work</h3>
-
-                <p><strong>Lecomte et al. (2023):</strong> Predicted L1 causes incidental polysemanticity via WTA. We provide the first direct L1 vs L2 comparison quantifying this (-17.9% Interference, p&lt;0.01).</p>
-
-                <p><strong>Anthropic's SAE work (Bricken et al. 2023, Templeton et al. 2024):</strong> Uses L1 penalty extensively for training SAEs. Our findings suggest this may fight avoidable polysemanticity, but Anthropic also uses advanced architectures (JumpReLU, TopK) that may mitigate the L1 paradox through different mechanisms. Direct comparison needed.</p>
-
-                <p><strong>Modern SAE variants:</strong> We used vanilla LeakyReLU SAEs. State-of-art methods (TopK, JumpReLU, Gated) achieve better reconstruction at given sparsity levels. How L2 network training compares to these architectural improvements remains an open question.</p>
-
-                <h3>Honest Limitations</h3>
-
-                <p>This is a toy model with significant constraints:</p>
-
-                <ul>
-                    <li><strong>Synthetic data with designed correlations</strong> - Real LLMs don't have researcher-controlled correlation knobs. Findings most applicable to scenarios with natural co-occurrence (e.g., "car" and "road") or accidental training correlations.</li>
-                    <li><strong>Extreme overcapacity</strong> - 16 SAE latents / 8 features = 2×, plus 12D hidden &gt; 8D features. Real LLM SAEs are 4-8× overcomplete. The degree of overcapacity may exaggerate effects.</li>
-                    <li><strong>No LLM validation</strong> - Whether this generalizes to billion-parameter models is unknown. The mechanisms (L1 WTA, L2 smoothing) suggest it might, but needs empirical testing.</li>
-                    <li><strong>Arbitrary importance decay</strong> - Using 0.9^i importance weights. Real models likely have power-law or heavy-tailed importance distributions.</li>
-                    <li><strong>No qualitative feature analysis</strong> - We measure polysemanticity via proxy metrics (Interference, MACS) without verifying features are actually clearer to human interpreters. This is a critical missing validation.</li>
-                    <li><strong>Vanilla SAE architecture</strong> - Using LeakyReLU SAEs, not state-of-art TopK/JumpReLU/Gated variants. Modern architectures may change the picture.</li>
-                    <li><strong>Calibrated_MACS noise</strong> - With std=0.14 and mean~0.5, this metric barely distinguishes from chance. 200 permutation samples may be insufficient for 16D space. Needs refinement.</li>
-                </ul>
-
-                <h3>What We Don't Claim</h3>
-
-                <p><strong>NOT claiming:</strong></p>
-
-                <ul>
-                    <li>"L1 is always bad" (only in overcomplete toy setting)</li>
-                    <li>"This definitely applies to LLMs" (untested, unknown)</li>
-                    <li>"Don't use L1 for SAEs" (we still used L1 for the SAE, just not network training)</li>
-                    <li>"L2 is the solution" (it's one mitigation; modern SAE architectures may be equally or more important)</li>
-                </ul>
-
-                <p><strong>Claiming:</strong></p>
-
-                <ul>
-                    <li>L2 network regularization reduces polysemanticity vs L1 in this toy model</li>
-                    <li>The mechanism (WTA vs distributed) is consistent with theory</li>
-                    <li>This suggests network training dynamics matter for interpretability</li>
-                    <li>Further research on real models is needed</li>
-                </ul>
-
-                <h2>Future Directions</h2>
-
-                <h3>Immediate Next Steps</h3>
-
-                <p><strong>Test on real LLMs via PEFT</strong> - Fine-tune Llama or similar with LoRA adapters trained using L1 vs L2 regularization on toy-like data. Measure polysemanticity in adapted representations without catastrophic forgetting.</p>
-
-                <p><strong>Compare to modern SAE variants</strong> - Does L2 network training combined with TopK or JumpReLU SAEs achieve better results than either alone?</p>
-
-                <p><strong>Lambda sweep</strong> - Systematically vary L1/L2 strength to identify critical thresholds where polysemanticity minimizes. Is there a U-shaped curve?</p>
-
-                <p><strong>Qualitative feature analysis</strong> - Generate visualizations of what L1 vs L2 features actually encode. Do L2 features correspond to clearer, more monosemantic concepts?</p>
-
-                <p><strong>Ground truth feature recovery</strong> - Use Anthropic's toy model setup with known synthetic features. Measure recovery accuracy directly.</p>
-
-                <h3>Longer-Term Questions</h3>
-
-                <p><strong>Does this scale?</strong> Will the L1 paradox hold in billion-parameter models with complex natural data?</p>
-
-                <p><strong>Interaction with other training choices</strong> - How do learning rate, batch size, architecture depth affect the L1 vs L2 trade-off?</p>
-
-                <p><strong>Optimal regularization mixture</strong> - Is there an elastic net configuration (αL1 + (1-α)L2) that achieves both sparsity AND low polysemanticity?</p>
-
-                <p><strong>Feature importance distributions</strong> - How do real models' feature importance distributions (likely power-law) affect which features stay polysemantic under L1 vs L2?</p>
-
-                <h2>Conclusion</h2>
-
-                <p>This exploratory work in toy models suggests that network training dynamics—specifically the choice between L1 and L2 regularization—significantly affect the polysemanticity of learned representations. L2-trained networks produced 17.9% less feature entanglement than L1-trained networks (t=2.8, p&lt;0.01), challenging the conventional wisdom that "sparse equals interpretable" in overcomplete settings.</p>
-
-                <p>The mechanism is clear: L1's discontinuous gradients create winner-take-all dynamics where a few neurons become polysemantic, while L2's smooth gradients encourage distributed representations where many neurons specialize. Orthogonal initialization amplifies this difference—synergizing with L2 but antagonizing L1.</p>
-
-                <p>Whether these findings generalize to real LLMs remains an open empirical question. The toy model's extreme overcapacity, synthetic data, and arbitrary design choices limit direct applicability. However, the mechanistic insights—L1's WTA trap, L2's smoothing effect, orthogonal×regularization interactions—may inform future work on training more interpretable models.</p>
-
-                <p>For the mechanistic interpretability community, this work suggests two paths forward:</p>
-
-                <ul>
-                    <li>Architectural improvements (TopK SAEs, JumpReLU) to better decompose existing polysemantic representations</li>
-                    <li>Training improvements (L2 regularization, smooth activations) to reduce polysemanticity at the source</li>
-                </ul>
-
-                <p>Both matter. Fixing polysemanticity likely requires addressing both how we train models and how we interpret them.</p>
-
-                <p>All code, data, and experimental details are available at <a href="https://github.com/stanleyngugi/taming_polysemanticity">github.com/stanleyngugi/taming_polysemanticity</a>. I welcome feedback, replications, and extensions—especially testing these ideas on real LLMs.</p>
-
-                <hr style="margin: 48px 0;">
-
-                <h2>Acknowledgments</h2>
-
-                <p>Thanks to the mechanistic interpretability community for foundational work on SAEs and toy models. This research builds directly on Lecomte et al.'s incidental polysemanticity theory and Anthropic's dictionary learning approaches.</p>
 
                 <h2>References</h2>
 
@@ -617,3 +466,4 @@ SAE_MSE:         0.9280 ± 0.9801</code></pre>
     <script src="/main.js"></script>
 </body>
 </html>
+
