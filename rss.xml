@@ -7,11 +7,11 @@
     <language>en-us</language>
     <atom:link href="https://stanleyngugi.netlify.app/rss.xml" rel="self" type="application/rss+xml"/>
     <item>
-      <title>A Quarter of Your Prover's Tokens Never Reach the Judge</title>
+      <title>How a Grammar Changes AI-Generated Mathematical Proof Steps</title>
       <link>https://stanleyngugi.netlify.app/posts/2026-08-22-grammar-constrained-decoding-lean.html</link>
       <guid isPermaLink="true">https://stanleyngugi.netlify.app/posts/2026-08-22-grammar-constrained-decoding-lean.html</guid>
       <pubDate>Sat, 22 Aug 2026 00:00:00 +0000</pubDate>
-      <description>Grammar-constrained decoding makes 100% of generated Lean tactics parseable at zero latency cost — while hallucination stays at ~50%. That asymmetry is the point.</description>
+      <description>A quick note on how the sampling works, some saved results, and some notes on how the grammars accept the models' outputs.</description>
     </item>
     <item>
       <title>Building a Grammar for AI-Generated Mathematical Proof Steps</title>
@@ -29,4 +29,5 @@
     </item>
   </channel>
 </rss>
+
 

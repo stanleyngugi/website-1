@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>A Quarter of Your Prover's Tokens Never Reach the Judge - Stanley Ngugi</title>
-    <meta name="description" content="Grammar-constrained decoding makes 100% of generated Lean tactics parseable at zero latency cost — while hallucination stays at ~50%. That asymmetry is the point.">
+    <title>How a Grammar Changes AI-Generated Mathematical Proof Steps - Stanley Ngugi</title>
+    <meta name="description" content="A quick note on how the sampling works, some saved results, and some notes on how the grammars accept the models' outputs.">
     <meta name="author" content="Stanley Ngugi">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <meta property="og:title" content="A Quarter of Your Prover's Tokens Never Reach the Judge">
-    <meta property="og:description" content="Grammar-constrained decoding makes 100% of generated Lean tactics parseable at zero latency cost — while hallucination stays at ~50%. That asymmetry is the point.">
+    <meta property="og:title" content="How a Grammar Changes AI-Generated Mathematical Proof Steps">
+    <meta property="og:description" content="A quick note on how the sampling works, some saved results, and some notes on how the grammars accept the models' outputs.">
     <meta property="og:type" content="article">
     <meta property="og:url" content="https://stanleyngugi.netlify.app/posts/2026-08-22-grammar-constrained-decoding-lean.html">
     <meta property="og:image" content="https://stanleyngugi.netlify.app/og-image.png">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="citation_title" content="A Quarter of Your Prover's Tokens Never Reach the Judge">
+    <meta name="citation_title" content="How a Grammar Changes AI-Generated Mathematical Proof Steps">
     <meta name="citation_author" content="Ngugi, Stanley">
     <meta name="citation_publication_date" content="2026-08-22">
     <meta name="citation_online_date" content="2026-08-22">
@@ -30,6 +30,17 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/styles.css">
+    <style>
+        .article-header .entry-date { white-space: normal; }
+        .prose figure { margin: 24px 0; }
+        .prose figure img { display: block; max-width: 100%; height: auto; }
+        .prose figcaption { font-size: 14px; line-height: 1.6; color: var(--muted); margin-top: 10px; }
+        .prose .table-wrap:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+        .prose .equation { overflow-x: auto; padding: 16px 0; text-align: center; }
+        .prose .fraction { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; }
+        .prose .numerator { padding: 0 8px 4px; border-bottom: 1px solid currentColor; }
+        .prose .denominator { padding: 4px 8px 0; }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -48,190 +59,411 @@
 
             <article class="prose">
                 <header class="article-header">
-                    <h1>A Quarter of Your Prover's Tokens Never Reach the Judge</h1>
-                    <div class="entry-date">August 22, 2026 · 13 min read · formal methods, LLMs, constrained decoding · <a href="https://github.com/stanleyngugi/lean-tactic-research">code ↗</a></div>
+                    <h1>How a Grammar Changes AI-Generated Mathematical Proof Steps</h1>
+                    <div class="entry-date">August 22, 2026 · revised September 5, 2026 · 21 min read · formal methods, LLMs, constrained decoding · <a href="https://github.com/stanleyngugi/ai-proof-grammars">code ↗</a></div>
                 </header>
 
-                <div class="tldr-box">
-                    <div class="tldr-label">TL;DR</div>
-                    <p>What we learned by pointing a grammar-constrained decoder at Lean tactics — including the parts that broke.</p>
-                </div>
+<p><em>A quick note on how the sampling works, some saved results, and some notes on how the grammars accept the models&#39; outputs.</em></p>
+<p>Lean is a language and tool for writing proofs that a computer can check. Commands to make steps in a proof are called tactics. We&#39;re looking at grammars for these proof steps.</p>
+<p>Updated September 5, 2026 to make this a more complete article than the one from August 22. This has more details on the mechanics of decoding, examples to trace through, exact counts, and some corrections in the definitions of metrics. The key change is that we no longer consider the CFG accepting of inputs on the basis of whether they&#39;re valid Lean, and hence the &quot;latency&quot; and fraction of lines presented here differ from what might be implied by the original post. If the distinctions aren&#39;t relevant to what brought you here, the <a href="https://stanleyngugi.netlify.app/archive/revisions/2026-08-22-grammar-constrained-decoding-lean-original">original article is here</a>. If the evidence and how to reproduce it is what brought you here, see <a href="https://github.com/stanleyngugi/ai-proof-grammars/blob/main/docs/evidence.md">the evidence and reproduction notes</a>.</p>
+<p>How does grammar constrained decoding change what a model outputs? When we sample from a language model, at each step we compute a distribution over the next token. The grammar modifies this distribution to change what we sample. Since we sample different tokens, this will change the output of the model in general.</p>
+<p>Here, I&#39;ll show an example with a permissive grammar for Lean&#39;s tactic language, run on Qwen2.5-Coder-7B-Instruct. When we constrain to the grammar, 640/640 of the outputs (after &quot;cleaning&quot;) have first lines accepted by the grammar I use to score the outputs. (I use vLLM and llguidance to do the sampling.) Without the grammar, I get 420/640 on the same prompts.</p>
+<p>In the <a href="/posts/2026-08-22-lean-tactic-language-cfg.html">first article</a>, I explained why I think it&#39;s useful for the grammar to be permissive. In this article, I&#39;ll explain how the sampling works, show the results (since I saved them and they&#39;re not that big), and talk a bit about how the outputs differ depending on whether or not they&#39;re generated with the grammar.</p>
+<p>This is an experiment about how the model&#39;s output distribution changes; it doesn&#39;t involve running the model in Lean or training any models. Some related avenues of investigation might be: what keywords are used, how often are things left unfinished, how often does the model make &quot;admissions&quot;, how diverse are the strings, how long the requests take, and what happens when we look at something besides the first line of the output.</p>
+<h2>What exactly does autoregressive grammar aware decoding do?</h2>
+<p>Autoregressive grammar aware decoding is a procedure to sample from an autoregressive model where a token <code>v</code> is only allowed to be sampled if, after decoding it to a character sequence, the prefix of generated characters can still be completed to a string in the language of the grammar.</p>
+<p>In more detail, let’s say the token sequence sampled so far is <code>x</code>. Then, instead of sampling the next token <code>v</code> according to <i>p</i>(<i>v</i> ∣ <i>x</i>), the distribution is modified to: </p>
+<div class="equation" role="math" aria-label="q of v given x equals p of v given x times M sub G of x v, divided by the sum over u of p of u given x times M sub G of x u">
+<i>q</i>(<i>v</i> ∣ <i>x</i>) = <span class="fraction"><span class="numerator"><i>p</i>(<i>v</i> ∣ <i>x</i>) <i>M</i><sub>G</sub>(<i>x</i>, <i>v</i>)</span><span class="denominator">∑<sub>u</sub> <i>p</i>(<i>u</i> ∣ <i>x</i>) <i>M</i><sub>G</sub>(<i>x</i>, <i>u</i>)</span></span>
+</div>
 
-                <h2>The setup nobody argues about</h2>
+<p>Here, <i>M</i><sub>G</sub>(<i>x</i>, <i>v</i>) ∈ {0, 1} is a mask indicating whether or not <code>v</code> is a valid continuation of <code>x</code> (assuming no other mask-like modifications to the sampling procedure, like nucleus, presence penalty, etc). Intuitively, the sampling distribution is set to 0 for invalid choices, and renormalized. This changes the sampling distribution (even if the underlying model weights are unchanged), and since future tokens are conditioned on the changed distribution, it changes future probabilities too.</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable data table"><table>
+<thead>
+<tr>
+<th>Hypothetical token fragment</th>
+<th align="right">Before masking</th>
+<th>Allowed?</th>
+<th align="right">After masking</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>mul_comm</code></td>
+<td align="right">0.50</td>
+<td>Yes</td>
+<td align="right">0.714</td>
+</tr>
+<tr>
+<td><code>h1</code></td>
+<td align="right">0.20</td>
+<td>Yes</td>
+<td align="right">0.286</td>
+</tr>
+<tr>
+<td>closing fence</td>
+<td align="right">0.20</td>
+<td>No</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>end-of-sequence</td>
+<td align="right">0.10</td>
+<td>No</td>
+<td align="right">0</td>
+</tr>
+</tbody></table></div>
+<p>As an example, suppose the above table contains a subset of all possible next token fragments, and their respective probabilities according to the model. Here, the grammar is permissive, and allows any name at this point in the prefix, but does not allow it to be completed yet. Then, <i>q</i>(<i>v</i> ∣ <i>x</i>) would be the modified probabilities that are actually used for sampling. To be clear, these are not the logits used in the experiment, but are provided for teaching purposes.</p>
+<p>Notice that the ratio is still 2.5, but this is not necessarily true for all subsequent tokens. It is also worth noting that although it might look like the decoder is providing a score of how likely a token is to be part of a theorem, it is only providing a way to exclude certain choices. Finally, be aware that although the masking is done on a local level, the resulting distribution is not exactly equivalent to sampling from the original distribution conditioned on the whole string being valid.</p>
+<p>It might be helpful to see some pseudocode of how the loop works:</p>
+<pre><code class="language-python"># Pseudocode: the real engine operates on tokenizer-aware masks.
+while not finished:
+    logits = model.next_token_logits(prompt, generated)
+    allowed = matcher.allowed_token_ids()
+    logits[~allowed] = float(&quot;-inf&quot;)
+    token = sample(logits)
+    matcher.accept(token)
+    generated.append(token)
+</code></pre>
+<h2>It’s not a tactic yet!</h2>
+<p>Let’s take the (highly restricted for the purposes of the first article) rewrite rule grammar as an example:</p>
+<pre><code class="language-lark">start: &quot;rw&quot; &quot;[&quot; name (&quot;,&quot; name)* &quot;]&quot;
+name: /[A-Za-z_][A-Za-z0-9_&#39;.]*/
+%import common.WS
+%ignore WS
+</code></pre>
+<p>Given the partial generation <code>rw [</code>, it’s valid to start generating an identifier. Given <code>rw [mul_</code>, it’s still valid to continue generating the identifier. But, once the generation is <code>rw [mul_comm</code>, it’s now valid to generate a closing bracket to complete the generation, or a comma to start generating another element of the list. Crucially though, it’s not valid to stop generation at this point!</p>
+<p>It’s important to note that the model isn’t generating non-terminals or terminals of this grammar, but rather a sequence of tokens from its vocabulary. So it’s wrong to check each token individually against the grammar, or even just the first character of the token.</p>
+<p>There’s also a subtlety around how generation can be stopped: in particular, it’s possible for the generation to be stopped due to some external factor (e.g. running out of tokens, or some other type of interruption) at a point where the generation is still a valid prefix of the grammar, but not a valid complete generation. It’s important to note that these are two different things, and that in a real experiment, one should record the reason why generation was stopped, and additionally validate the generations against the grammar actually used for generation.</p>
+<p>Unfortunately, the original files don’t contain this information, so for now, we can’t tell from them whether generation stopped because it was complete, or measure the number of tokens used for the completion.</p>
+<figure>
+<img src="/assets/cfg/decoding.svg" width="760" height="540" alt="Model probabilities and tokenizer-aware grammar state jointly determine allowed tokens; masked sampling updates both the generated prefix and matcher state." loading="lazy">
+<figcaption>The intervention happens during sampling. Post-hoc scoring is a separate operation and may even use a different grammar.</figcaption>
+</figure>
 
-                <p>If you train or run an LLM theorem prover against Lean, you have exactly one source of ground truth: the kernel. Everything else — the model's confidence, a reward model's opinion, your own intuition about whether <code>simp [foo_lt]</code> looks right — is provisional. The kernel is where correctness gets decided.</p>
+<h2>Which grammar was used for generation?</h2>
+<p>The generation grammar that was used is <a href="https://github.com/stanleyngugi/ai-proof-grammars/blob/main/post2-constrained-decoding/grammar_lean.lark"><code>post2-constrained-decoding/grammar_lean.lark</code></a>, which was adapted from the scoring grammar to work with the guidance backend (this mostly involved adding explicit whitespace and removing the Lark-specific priorities, and avoiding a Lark-specific lookahead expression in the case patterns).</p>
+<p>The generation grammar is not (as far as I’m aware) provably equivalent to the scoring grammar. In fact, there are a few small differences (to do with which characters are allowed in identifiers, how case is handled, and some structural differences). However, the two grammars share what (to me) seem like the most important features, namely that they both allow very arbitrary arguments, and they both have a fallback option of just allowing any identifier:</p>
+<pre><code class="language-lark">generic_tac: ident (_WS args)?
+ident: /[A-Za-z_\u0370-\u03FF][A-Za-z0-9_&#39;!\u0370-\u03FF]*/
+args: /[^\n]+/
+_WS: /[ \t]+/
+</code></pre>
+<p>This means that the grammar is quite permissive. For example, it will accept just saying sorry (because sorry is an identifier), or it will accept things like exact sorry (because this is a named tactic with arbitrary arguments). It will even accept various English sentences, as long as they start with an identifier. (Some of the comments in the grammar claim that certain keywords are not allowed by the grammar, but this is not true - the language of the grammar has not been changed, only some of the comments).</p>
+<p>Of course, even though the grammar is permissive, it still rules out some things, and so it still changes the distribution of outputs. The fact that I saved some Qwen results does indicate that this particular intervention is associated with the scored distribution of outputs. However, it does not indicate that the output will always parse.</p>
+<h2>What was the exact task and prompt used for the Qwen comparison?</h2>
+<p>The task was to generate a single first tactic, given the statement of a theorem. The system message was:</p>
+<pre><code class="language-text">You are a Lean 4 proof assistant. You output only Lean 4 tactics.
+</code></pre>
+<p>And the user message was:</p>
+<pre><code class="language-text">Below is the statement of a real Lean 4 (Mathlib) theorem.
 
-                <p>But the kernel is also deaf to certain inputs. It evaluates tactic terms, and before it can evaluate a tactic, that tactic has to parse. A generation like:</p>
+```lean
+{stmt}
+by
+```
 
-                <pre><code>The first step is to induct on the structure of n.</code></pre>
+Output exactly ONE Lean 4 tactic line that would be a reasonable FIRST
+proof step for this theorem. Output only the tactic itself, nothing else.
+</code></pre>
+<p>This was the prompt format used in the historical experiments, for reference. It is no longer actively maintained and is known to be not great. In particular, the prompt is not formatted as a complete and compilable theorem declaration. This was not a problem at the time the experiment was performed, since the experiment didn&#39;t bother to check that each prompt was in fact a valid theorem statement.</p>
+<p>More recently, it has been noticed that at least some of the 80 extracted statements used as prompts appear to contain context that is not included in the prompt, and therefore the prompt is not a complete theorem statement. For instance, the currently saved prompt for &quot;card_pow_le&quot; contains two parts of separate branches of a proof, as well as a subsequent theorem declaration, making it fairly obvious that this is not a well-extracted theorem statement. This was not caught at the time because the prompts were selected randomly from the available statements, and so not all of them were checked for validity.</p>
+<p>Both of the Qwen conditions were given the same set of prompts, but due to the issues described above, it is not clear how well the results generalize to a more realistic set of theorem statements. Furthermore, the task is not the same as predicting the next tactic in a proof, since the model is not given the current state of the proof.</p>
+<h2>Configuration and artifacts</h2>
+<p>The historical stack for this project was vLLM 0.10.2 (with the guidance backend) on an RTX A5000, using the Qwen2.5-Coder-7B-Instruct model. The Qwen driver used the following settings:</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable data table"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Saved prompt set</td>
+<td>80 extracted statements</td>
+</tr>
+<tr>
+<td>Samples per statement</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Requests per sample</td>
+<td>One, with <code>n=1</code></td>
+</tr>
+<tr>
+<td>Temperature</td>
+<td>0.8</td>
+</tr>
+<tr>
+<td>Top-p</td>
+<td>0.95</td>
+</tr>
+<tr>
+<td>Maximum output tokens</td>
+<td>64</td>
+</tr>
+<tr>
+<td>Task</td>
+<td>One first tactic</td>
+</tr>
+<tr>
+<td>Scoring unit</td>
+<td>First nonempty line after cleanup</td>
+</tr>
+</tbody></table></div>
+<p>The served model alias in the driver was <code>m</code>. The historical files don’t include a full server manifest.</p>
+<p>Note that the historical JSONL files do not contain information about the specific model revision used, and so the model revision is not recorded here. This is the best information available.</p>
+<p>This involves a request-level modification:</p>
+<pre><code class="language-python">extra_body = {
+    &quot;guided_grammar&quot;: grammar_text,
+    &quot;guided_decoding_backend&quot;: &quot;guidance&quot;,
+}
+</code></pre>
+<p>The unconstrained version simply doesn&#39;t include this in the request body. The <a href="https://github.com/stanleyngugi/ai-proof-grammars/blob/main/post2-constrained-decoding/gen_eval.py">full driver</a> is still available in the repo if that&#39;s unclear. Note that this reflects the state of the API for the pinned version of the serving stack at the time; the API for the most current version of vLLM may differ.</p>
+<p>Note that while the raw generation files are unchanged, the analyzed versions in <code>analysis/</code> are now correct (they record hashes of their inputs to make it clear which files they go with, which helps if people want to recover the artifacts locally for some reason).</p>
+<h2>On Scoring Cleanup</h2>
+<p>The scorer does some cleanup, it doesn&#39;t just blindly try to parse whatever comes out of the model. In particular the code does:</p>
+<pre><code class="language-python">text = remove_outer_fences(text.strip())
+lines = [line.strip() for line in text.splitlines() if line.strip()]
+tactic = lines[0] if lines else &quot;&quot;
+</code></pre>
+<p>So for example if the model outputs a fenced block containing <code>simp</code>, followed by <code>something</code> and <code>something_else</code>, the scorer will extract simp and score that. But if it outputs e.g. the chain of thought before the actual output, it will try to score the first line of that, which likely isn&#39;t a valid tactic.</p>
+<p>It does also generate the multiline note from the original scorer, so it&#39;s not like that information is lost.</p>
+<p>It&#39;d be weird to compare constrained generation&#39;s cleaned up outputs to unconstrained generation&#39;s raw outputs. When originally trying out constrained generation on these benchmarks, the comparison was between unconstrained generation with cleanup vs constrained generation with cleanup. The &quot;cleanup&quot; is pretty minimal, it&#39;s basically just there to handle models that wrap their output in a markdown code block. The original Qwen scorer also does this cleanup for both unconstrained and constrained generations.</p>
+<p>The scorer was broken because it forgot to import <code>os</code>. It’s fixed <a href="https://github.com/stanleyngugi/ai-proof-grammars/blob/main/post2-constrained-decoding/score.py">here</a>, but it scores to a different place, so that when scores are regenerated they don&#39;t overwrite the original csvs. The historic classification can be computed by applying the same id heuristic.</p>
+<h2>Scoring Qwen on the same thing</h2>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable data table"><table>
+<thead>
+<tr>
+<th>Measurement</th>
+<th>Unconstrained</th>
+<th>Constrained</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Samples</td>
+<td>640</td>
+<td>640</td>
+</tr>
+<tr>
+<td>Named CFG alternative</td>
+<td>388</td>
+<td>592</td>
+</tr>
+<tr>
+<td>Generic fallback</td>
+<td>32</td>
+<td>48</td>
+</tr>
+<tr>
+<td>Rejected by CFG</td>
+<td>220</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Accepted by CFG</td>
+<td>420 (65.625%)</td>
+<td>640 (100.000%)</td>
+</tr>
+<tr>
+<td>Leading keyword in corpus</td>
+<td>385/640 (60.156%)</td>
+<td>584/640 (91.250%)</td>
+</tr>
+<tr>
+<td>At least one identifier flag</td>
+<td>319/640 (49.844%)</td>
+<td>339/640 (52.969%)</td>
+</tr>
+<tr>
+<td>Mentioned sorry or admit</td>
+<td>2/640 (0.313%)</td>
+<td>16/640 (2.500%)</td>
+</tr>
+<tr>
+<td># distinct strings per statement</td>
+<td>7.10</td>
+<td>7.00</td>
+</tr>
+<tr>
+<td>Mean request latency</td>
+<td>0.3035 s</td>
+<td>0.3473 s</td>
+</tr>
+</tbody></table></div>
+<figure>
+<img src="/assets/cfg/qwen-acceptance.svg" width="820" height="410" alt="Of 640 Qwen samples in each condition, the unconstrained run has 388 named matches, 32 generic matches, and 220 rejections; the constrained run has 592 named matches, 48 generic matches, and no rejections." loading="lazy">
+<figcaption>Classification of first cleaned lines. These are CFG outcomes, not Lean execution outcomes.</figcaption>
+</figure>
 
-                <p>is not a wrong proof. It is not a partially-right proof. It produces <em>no information at all</em>. It never reaches the judge. Whatever compute went into emitting those tokens — and whatever sampling budget they consumed inside an RL group — is spent outside earshot of the only oracle you have.</p>
+<p>This is an improvement of 34.375 percentage points, or 220 more accepted strings on the fixed budget that was used.</p>
+<p>The leading keyword statistic is not directly relevant, but does provide some corroborating evidence that something changed. The table of keywords was computed using the heuristic extractor of corpus data discussed in the <a href="/posts/2026-08-22-lean-tactic-language-cfg.html">first article</a>. It is not the set of tactics that were actually loaded into Lean for LLM queries.</p>
+<p>The ablation study performed in the <a href="/posts/2026-08-22-lean-tactic-language-cfg.html">first article</a>, wherein the grammar was made smaller, is exactly the same with respect to acceptances. This is evidence that the set of acceptances is broadly the same, and that the specific choice of productions named as &quot;tactics&quot; wasn&#39;t relevant.</p>
+<h2>Saved examples</h2>
+<p>Below are a few saved samples from the scorer. These examples should not be taken as representative of how often different categories of measurements show up for a given model, but are instead meant to illustrate how the different categories work. For each sample, we include the <code>goal_id</code> and <code>sample_idx</code> so that they can be found in the corresponding jsonl file. For each example, we also save the raw and cleaned sample text and classifications in <code>analysis/examples.json</code>.</p>
+<p><strong>Example 1:</strong> The sample is:</p>
+<pre><code class="language-text">`apply comp_idem`
+</code></pre>
+<p>(from <code>unconstrained__qwen.jsonl</code>, goal 29184, sample 1). This sample is rejected by the context-free grammar checker due to the formatting at the beginning of the sample. The cleaner does not remove the backticks, since it only strips triple backticks from the beginning and end of the sample. This example is meant to illustrate that the current cleaner doesn&#39;t deal with all formatting issues, but that a change in the cleaning code would have an effect on the sample score. In this case, removing the backticks would change the score, though it wouldn&#39;t necessarily make the tactic correct (since we don&#39;t know if <code>comp_idem</code> is even a valid identifier that resolves to something).</p>
+<p><strong>Example 2:</strong> The sample is:</p>
+<pre><code class="language-text">induction n with | zero =&gt; simp | succ n ih =&gt;
+  have h₁ : deriv (iteratedDeriv n f) = iteratedDeriv (n + 1) f := by ring
+  rw [h₁] at ih
+  simp [ih]
+```
+</code></pre>
+<p>(from <code>unconstrained__qwen.jsonl</code>, goal 36579, sample 7). The &quot;first line&quot; scorer classifies this as a named induction with the multiline note, since the first line matches the named induction alternative in the CFG. The issue is that the argument catch-all part of the grammar accepts this entire line. This sample illustrates that the score is based on which line is chosen, and is agnostic to whether or not that line is part of a complete proof structure.</p>
+<p><strong>Example 3:</strong> The sample is:</p>
+<pre><code class="language-lean">have hB_cont := continuous_comp (continuous_id ∘ f) hg.continuous; sorry
+</code></pre>
+<p>(from <code>unconstrained__qwen.jsonl</code>, goal 110604, sample 2). This sample is classified as being accepted by the grammar, but also using an admission, since the have statement at the beginning is accepted by the grammar, but the lexical scorer recognizes the sorry in this sample. Both of these classifications are correct, and this illustrates that these scorers are looking for two different things.</p>
+<p><strong>Example 4:</strong> The sample is <code>rewrite category.id_comp</code> (from <code>constrained__qwen.jsonl</code>, goal 29184, sample 3). This sample is classified as being a generic fallback. This example shows that even for the constrained data, not all samples choose a named production.</p>
+<h2>Does it preserve diversity of similar strings?</h2>
+<p>To get this value, all outputs were grouped by each statement, and the number of unique strings after cleaning was counted. (There are only 8 samples per group, so the maximum value is 8.)</p>
+<p>This suggests that the amount of duplication in exact strings has not gone up dramatically in this small run. This also does not necessarily mean that it is preserving the diversity of strategies for proving a theorem; for example, &quot;simp [h1]&quot; and &quot;simp [h2]&quot; would be counted as different, even though they may have the same effect. Moreover, two completely different strings may have the same effect of failing immediately. On the other hand, one of these tactics may include a large amount of internal proof search.</p>
+<p>If and when this is tested on actual proving ability in the future, the diversity of unique successor states, or the diversity of families of tactics or proofs that can successfully prove a theorem, may be better metrics for determining how the model performs. (At that point, an actual evaluator would need to be declared to determine how equivalency is measured.)</p>
+<p>Note that this was clustered by each of the 80 statements, and any generalization to the larger pool of problems should take this into account when calculating uncertainty. These values are exact for the current files. This is not a confidence interval for a future run with a different set of theorems or a different model.</p>
+<h2>What is the name checking rate?</h2>
+<p>Some keywords, local binders, common core names, and generated names are excluded, and any remaining names in the arguments are looked up in a table generated from the source.</p>
+<p>This is not a perfect oracle for hallucination; names are looked up by their short name, so this may approve a hallucinated name in a different namespace, flag a local variable that was not recognized properly, or miss a real declaration in the core library that was not found in the scanned roots. Moreover, a name may be introduced in the proof rather than referenced.</p>
+<p>This rate should more accurately be described as the percent of generations with at least one flagged identifier. It does not necessarily mean that approximately half of the generations include a hallucinated reference to a non-existent Lean declaration.</p>
+<p>A common point of confusion is that even when using the same checker, its bias is not cancelled out since the constraints change the form of generations, and different forms trigger the heuristic differently. A manually checked sample or environment-aware name resolution would help establish what those flags mean. At the moment, all this comparison is telling me is that the constraints are changing some flag on the LLM in a certain way.</p>
+<p>That said, it is useful information - in this case it shows that intervening on the grammar was not able to remove some heuristic applied for dictionary words, which makes sense because the grammar does not constrain most of the argument slots.</p>
+<h2>Importance of latency precision</h2>
+<p>The mean of both of these is 0.3 when rounded, but the underlying data is 0.30353125 vs 0.347296875, so the average request latency was ~14.4% higher.</p>
+<p>I want to be careful with what causal claims I make about this difference, since the requests are not identical and there are a bunch of other factors that could cause this difference, but I wanted to point out that it would be hard to make this kind of comparison with the historical artifacts since they don&#39;t contain information about the number of tokens generated (to normalise for different length generations) nor do they repeatedly run the same request interleaved.</p>
+<p>In the absence of more careful measurement, I would just point out that both runs took under a second on average and that one was higher than the other. If I were to run this experiment today I would log all of the information necessary to make a throughput comparison (number of input/output tokens, time to first token, total time taken, whether the request was completed, server configuration, warmup policy, etc) as well as accounting for the fact that validation involves retries.</p>
+<h2>Goedel Experiments</h2>
+<p>This is another set of very valuable experiments, but the issues described above about interface to generations and scoring by unit still apply.</p>
+<p>Just for reference, the model was Goedel-Prover-V2-8B (from <a href="https://arxiv.org/abs/2508.03613">the paper</a>). The artifacts that I recovered were:</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable data table"><table>
+<thead>
+<tr>
+<th>Artifact</th>
+<th>Num samples</th>
+<th>Num statements</th>
+<th>Interface and budget</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Unconstrained first step</td>
+<td>640</td>
+<td>80</td>
+<td>Chat-style first step setup with 64 token budget for the driver</td>
+</tr>
+<tr>
+<td>“Constrained” first step</td>
+<td>640</td>
+<td>80</td>
+<td>Same as above, although I’m not sure that the setup was constrained correctly</td>
+</tr>
+<tr>
+<td>Native full proof</td>
+<td>139</td>
+<td>69</td>
+<td>Text completion interface with the statement + an unclosed Lean proof code fence, intended to sample two samples per statement with a 500 token budget</td>
+</tr>
+</tbody></table></div>
+<p>Note that for the native model I’m using the statement + an unclosed Lean proof code block as the prefix, and asking the model to complete this. This differs from the first step artifacts where a chat style instruction was used. Note also that this artifact is incomplete (it is supposed to contain two samples for each of the 80 statements).</p>
+<p>To be clear, the “yield” number was calculated by running a script which, for each output: if there was at least one complete code fence in the output, selected only the lines within the first complete code fence; otherwise, selected all lines from the output; removed empty lines and lines which were headings or specific comments; stripped leading and trailing whitespace and trailing commas; checked whether the remaining string was accepted by the CFG.</p>
+<p>Running this script, I get the following numbers for the fraction of selected lines accepted by the CFG:</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable data table"><table>
+<thead>
+<tr>
+<th>Artifact</th>
+<th>Num selected lines</th>
+<th>Fraction accepted by CFG</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Qwen unconstrained</td>
+<td>670</td>
+<td>64.9%</td>
+</tr>
+<tr>
+<td>Qwen constrained</td>
+<td>640</td>
+<td>100.0%</td>
+</tr>
+<tr>
+<td>Goedel native full proof</td>
+<td>1970</td>
+<td>49.9%</td>
+</tr>
+<tr>
+<td>Goedel “constrained”</td>
+<td>640</td>
+<td>84.5%</td>
+</tr>
+</tbody></table></div>
+<p>This number is not the same as the fraction of tokens sent to Lean, as (1) it’s a fraction of lines rather than tokens and (2) it doesn’t necessarily correspond to valid complete proofs since a line may be part of a multiline term/proof etc.</p>
+<p>It’s worth pointing out that for the native Goedel file, 130/139 of the first cleaned lines of each output are accepted by the CFG, so there’s no typo in the numbers above!</p>
+<p>For the constrained Goedel file, the number is 541/640, or 84.53%. However, the CSV files for the scores only contained a part of this, so the numbers in those CSVs are for a smaller set. Rather than try to combine the partial denominator with the complete denominator for the recovered file, I’ve just reported the number for the recovered file here.</p>
+<h2>How to prove constraint activity?</h2>
+<p>In the experiments for the original PR, there were some weird outputs. It was thought they were due to parallel sampling causing vLLM to revert to another backend. However, it might be useful to have a more general proof that this bug exists in vLLM, and what the cause of it is. This is a research log of trying to prove that the issue is due to the way serving works, as the fact that it occurs when sampling in parallel can&#39;t be proven only by looking at saved generations.</p>
+<p>For this, it would be helpful to have a grammar for a generation, and an output which that generation can&#39;t output. For instance, one could create a tiny grammar which only allows the word &quot;rfl&quot; to be output, and then show that the server returns a generation with &quot;simp&quot; after getting a finish reason of &quot;complete&quot;. However, if the grammar allows arbitrary text starting with an identifier, then it&#39;s harder to show that an English sentence generated by the model shouldn&#39;t have been generated.</p>
+<p>Another way to prove that the constraint is being enforced could be to try and enforce it, and see if it works. This could entail compiling the grammar using the backend, and then checking that each returned string (with finish reason &quot;complete&quot;) is in the language. Any errors from the backend should also be stored, along with the reason the generation terminated for. This should probably only be done either with n=1 or with parallel sampling, for a minimal example.</p>
+<p>One could also simply check if generations are accepted after the fact. However, noting that 100% of generations are accepted by a different, more general grammar is not sufficient to show that masking is being done. Similarly, noting that there are no markdown fences in a generation is only a smoke test for a specific issue, not a general way to show that the constraints are being enforced.</p>
+<p>The repo has been changed to have n=1 in the driver (it was always like that historically), and the claims about what is and isn&#39;t done by the backend have been narrowed. A new run should save more information about if the constraints are being enforced.</p>
+<h2>Handling reserved words and limited retries</h2>
+<p>Note that &quot;sorry&quot; was observed in the above. It&#39;s not part of the grammar, except via the generic identifier. Even if one were to remove that, and ensure that the top level can&#39;t generate &quot;sorry&quot;, one could still generate e.g. <code>exact sorry</code> because the term doesn&#39;t have any restrictions on it.</p>
+<p>There is a wrapper which will check lexically if the output is acceptable, and if not, will resample a limited number of times. Note that this is not a way to certify that something is in a language, and also that it may reject things which are in the language (if it&#39;s simply checking that a word doesn&#39;t appear with word boundaries, then it will reject valid outputs which have that word in a comment or string, for example).</p>
+<p>Finite forbidden-word exclusion can be represented by suitable lexical constructions even without regex lookahead; whether a particular engine accepts a convenient expression is an implementation question. More importantly, banning a spelling and verifying a proof’s dependencies are different goals.</p>
+<p>For an idealized independent violation probability <code>p</code>, unlimited rejection sampling needs an expected <code>1 / (1 - p)</code> attempts. At <code>p = 0.025</code>, that is about 1.026. The arithmetic explains the old “1.03” estimate, but it is not measured end-to-end overhead. A bounded wrapper can exhaust its attempts, and real retry distributions need not satisfy the simplifying assumption.</p>
+<h2>Optional reasoning is a separate experiment</h2>
+<p>The original architecture proposed allowing informal reasoning before activating the formal grammar. The saved Qwen experiment instead asks for a tactic directly. Those arrangements should be distinguished:</p>
+<pre><code class="language-text">A: prompt → constrained tactic
+B: prompt → free reasoning → constrained formal block
+</code></pre>
+<p><a href="https://arxiv.org/abs/2502.09061">CRANE</a> studies reasoning-augmented constraints and motivates this distinction. It does not establish which arrangement works better for these Lean prompts. Nor does the fact that a formal language is infinite prove that every restriction preserves every useful reasoning path.</p>
+<p>A controlled comparison would hold total generation cost fixed, account for the reasoning tokens, and implement switching correctly across tokenizer boundaries. Informal tokens may contribute to the eventual answer; their absence from a tactic grammar is not evidence that they were wasted.</p>
+<p>This matters for the interpretation of the native full-proof outputs. A model’s preferred generation interface, including any reasoning or scaffolding, should be understood before its lines are classified as losses. The right experiment can still find that direct constrained tactics are more efficient. That result needs to be measured rather than assumed.</p>
+<h2>What the experiment does and does not establish</h2>
+<p>The main supported result is a substantial increase in first-cleaned-line CFG acceptance for the saved Qwen run, together with more corpus-recognized leading keywords and similar exact-string diversity.  Identifier flags remain common. Recorded average latency is higher in the constrained condition. The grammar itself remains permissive.</p>
+<p>As called out in the header, this experiment doesn&#39;t directly measure whether the resulting strings are accepted by the Lean parser, or whether the tactics complete successfully, or whether the proofs complete, or how many tokens it saves, or how well it trains, etc. Lean does have some parser and elaborator feedback that happens before the end, so it&#39;s not entirely silent, but still, this doesn&#39;t measure that either.</p>
+<p>Regarding the training point, it&#39;s not quite true that outputs which fail to be produced don&#39;t get optimized for. They can receive below-average group rewards, so they do contribute an optimization signal. For an explanation of the algorithm, see e.g. this <a href="https://arxiv.org/html/2402.03300v3">DeepSeekMath article</a>. That said, it&#39;s true that in general the number of rollouts contributing to a gradient step won&#39;t be given by the product of the group size and the syntax acceptance.</p>
+<p>There&#39;s a lot of related work on generating tactics according to a grammar. One of the earliest is probably <a href="https://proceedings.mlr.press/v97/yang19a/yang19a.pdf">ASTactic</a>. However, this is not in the context of a pre-trained LLM, and instead of constraining generation by masking the token vocabulary, they use a different approach. Another related project, also targeting Lean, is the public <a href="https://ai.math.uw.edu/projects/spring-2026/">LeanGCD project</a> on generating constrained output for Lean. While this isn&#39;t the only project of its kind, hopefully this article is useful for having an experiment that anyone can inspect.</p>
+<h2>Things to do before trying to extend this</h2>
+<p>The associated git repo has been modified to be a little easier to work with. It saves the jsonl input files and the original csvs, and stores the other output files separately. To run the analysis, which is all CPU, and doesn&#39;t require the GPU serving, run:</p>
+<pre><code class="language-bash">pip install -r requirements-analysis.txt
+python analysis/audit.py
+python post2-constrained-decoding/score.py qwen
+python post2-constrained-decoding/yield_analysis.py
+python -m unittest discover -s tests
+</code></pre>
+<p>The file <code>analysis/audit.json</code> has various meta-information about the run, including the hashes of the raw files, the number of samples and goals, the total number of classifications and lines, the time taken for each, and the number of lines with each classification compared to the version with reduced grammars. The figures in the article are also generated from this. (Some of these numbers would be hard to reconstruct exactly, so here’s a <a href="https://github.com/stanleyngugi/ai-proof-grammars/blob/main/docs/provenance.md">description of the provenance of the files</a>.)</p>
+<p>Proof-state interaction and training are in a separate project, <code>lean-proving-experiments</code>, which also contains the list of open questions. The <a href="https://github.com/stanleyngugi/ai-proof-grammars#scope-separation">repository’s scope notes</a> explain the separation. Some of the things to try next with the CFG experiment are to extend the supported grammars, to extend the diagnostics for how often the enforcement is helping, to make the inputs to the experiment more faithful, and to compare the interfaces for the output in a controlled way.</p>
+<h2>References</h2>
+<div class="refs">
+<p>Hui, B., et al. (2024). <a href="https://arxiv.org/abs/2409.12186">Qwen2.5-Coder Technical Report</a>. arXiv:2409.12186.</p>
+<p>Lin, Y., et al. (2025). <a href="https://arxiv.org/abs/2508.03613">Goedel-Prover-V2: Scaling Formal Theorem Proving with Scaffolded Data Synthesis and Self-Correction</a>. arXiv:2508.03613.</p>
+<p>Guidance contributors. <a href="https://github.com/guidance-ai/llguidance">llguidance</a>. Tokenizer-aware grammar constraints and structured generation.</p>
+<p>Kwon, W., et al. (2023). <a href="https://arxiv.org/abs/2309.06180">Efficient Memory Management for Large Language Model Serving with PagedAttention</a>. SOSP 2023. The vLLM serving system.</p>
+<p>Banerjee, D., Suresh, T., Ugare, S., Misailovic, S., and Singh, G. (2025). <a href="https://arxiv.org/abs/2502.09061">CRANE: Reasoning with constrained LLM generation</a>. arXiv:2502.09061.</p>
+<p>Shao, Z., et al. (2024). <a href="https://arxiv.org/abs/2402.03300">DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models</a>. arXiv:2402.03300. Introduces GRPO.</p>
+<p>Yang, K., and Deng, J. (2019). <a href="https://proceedings.mlr.press/v97/yang19a.html">Learning to Prove Theorems via Interacting with Proof Assistants</a>. ICML, PMLR 97, pp. 6984–6994. Introduces ASTactic and CoqGym.</p>
+<p>University of Washington AI for Math. <a href="https://ai.math.uw.edu/projects/spring-2026/">LeanGCD</a>. Spring 2026 project listing; cited as related ongoing work.</p>
+</div>
 
-                <p>This suggests the wrong question and the right question. The wrong question is <em>"does constraining decoding make the model smarter?"</em> — of course it doesn't; masking logits changes nothing about what the model believes. The right question is: <strong>what fraction of generated tokens actually reach the kernel?</strong> Because every token that does is a token that gets back precise, machine-readable, per-step feedback — unknown identifiers with exact positions, unsolved goal states, type mismatches — and every token that doesn't is waste.</p>
-
-                <p>We ran a small, clean experiment to measure that fraction, and to see what a grammar constraint does to it.</p>
-
-                <h2>What we did</h2>
-
-                <ul>
-                    <li><strong>Task</strong>: given a real Mathlib theorem statement, generate one first proof step (tactic line). This is the granularity at which kernel-in-the-loop provers actually work.</li>
-                    <li><strong>Problems</strong>: 80 statements sampled mechanically (seeded) from a fresh clone of current Mathlib (~8,900 files). No cherry-picking; the same sample validates externally — the top-20 leading-keyword share of real Mathlib tactic lines came out at 82.4%, in line with three earlier independent measurements (~83–85%), so the corpus wasn't weird.</li>
-                    <li><strong>Models</strong>: Qwen2.5-Coder-7B-Instruct (a generalist coder) and Goedel-Prover-V2-8B (a model explicitly trained to emit Lean proofs).</li>
-                    <li><strong>Constraint</strong>: a hand-written CFG for the Lean tactic sublanguage (53 keyword-dispatched productions plus a permissive arguments catch-all). Its construction and comprehensiveness — 99.86% structural coverage across all of Mathlib, cross-validated on Rocq and Isabelle — are the subject of <a href="/posts/2026-08-22-lean-tactic-language-cfg.html">the companion post</a>; this one treats it as a given. Served through vLLM's structured-output backend backed by llguidance — genuine logit masking, not prompting.</li>
-                    <li><strong>Scoring</strong>: every generation parsed post-hoc against the same CFG; leading keywords checked against the corpus frequency table; referenced identifiers checked against 163,631 real declaration names extracted from Mathlib + Batteries source.</li>
-                    <li>8 samples per problem, temperature 0.8, both conditions identical except for the mask.</li>
-                </ul>
-
-                <h2>Result one: the constraint does its job perfectly</h2>
-
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Qwen2.5-Coder-7B</th>
-                                <th>unconstrained</th>
-                                <th>constrained</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>syntactically valid under CFG</td>
-                                <td>65.6%</td>
-                                <td><strong>100.0%</strong></td>
-                            </tr>
-                            <tr>
-                                <td>leading token is a real tactic keyword</td>
-                                <td>60.2%</td>
-                                <td>91.2%</td>
-                            </tr>
-                            <tr>
-                                <td>mean latency per request</td>
-                                <td>0.3s</td>
-                                <td>0.3s</td>
-                            </tr>
-                            <tr>
-                                <td>distinct tactics per problem (diversity)</td>
-                                <td>7.10</td>
-                                <td>7.00</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <p>Three things worth noticing. First, the constraint works completely: zero invalid generations out of 640. Second, it's <em>free</em> — no measurable latency overhead, which surprises people who assume grammar masking is expensive. Third — and this was genuinely unexpected — <strong>diversity doesn't collapse</strong>. We feared a constrained decoder would fall into a narrow band of <code>simp</code>/<code>ring</code> boilerplate. It doesn't: essentially the same spread of distinct tactics per problem. A grammar that admits a permissive arguments slot after any recognized keyword preserves most of the model's exploration space while closing the syntax door.</p>
-
-                <h2>Result two: hallucination didn't move — and that's the point</h2>
-
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th></th>
-                                <th>unconstrained</th>
-                                <th>constrained</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>generations citing ≥1 nonexistent identifier</td>
-                                <td>49.8%</td>
-                                <td>53.0%</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <p>Roughly half of all generations cited at least one identifier that does not exist anywhere in Mathlib or Batteries — plausible-sounding fabrications like <code>ZMod.sub_eq_add_neg</code> or <code>T1Space_def</code>. The grammar constraint did nothing about this. Of course it did nothing: <code>simp [T1Space_def]</code> is perfectly grammatical. Whether the name between the brackets resolves is invisible to any context-free machinery.</p>
-
-                <p>Read this the right way, though. The constraint was never supposed to fix hallucination. It was supposed to guarantee that hallucinations <strong>become signal instead of silence</strong>. An unconstrained generation fails in two ways: sometimes semantically (name doesn't exist — but at least the kernel will tell you exactly that, with a categorized error and a token position), and sometimes syntactically (the line can't even be submitted — and then <em>nothing</em> tells you anything). The grammar eliminates the second failure class entirely. Every remaining error is now one the oracle knows how to talk about. That's what "coupling the generator to the verifier" means operationally: not fewer errors, but errors that are all <em>speakable</em>.</p>
-
-                <p>For training, this is the difference between a labeled example and a discarded one.</p>
-
-                <h2>Result three: even specialists bleed half their output</h2>
-
-                <p>Goedel-Prover-V2-8B generating in its native full-proof format gives the sharpest version of the yield story. Counting every tactic-looking line it emits across whole proofs:</p>
-
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>generation mode</th>
-                                <th>tactic-lines that reach the kernel</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>Qwen unconstrained, first-tactic</td>
-                                <td>64.9%</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Goedel native, full proofs</strong></td>
-                                <td><strong>49.9%</strong></td>
-                            </tr>
-                            <tr>
-                                <td>Goedel with constraint*</td>
-                                <td>84.5%</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <p>Even a model trained specifically on Lean proofs wastes about <strong>half</strong> its emitted proof lines on content that cannot be evaluated — prose scaffolding, malformed steps, truncated fragments. Under a constraint, every emitted line crosses the syntactic gate by construction.</p>
-
-                <p>Do the training-loop arithmetic. In a GRPO-style setup sampling groups of k rollouts, the number of rollouts that can contribute gradient is p_syntax · k. At p = 0.65 you're paying for a third of your GPU-hours to hear silence. At p = 1 the same budget buys ~50% more effective rollouts — before any improvement in the model itself, at zero measured latency cost. This compounds over every step of a training run. It's the same logic as a data flywheel spinning against friction: the wheel doesn't get stronger when you remove friction, it just stops losing torque — and distance traveled is torque × revolutions.</p>
-
-                <h2>The fine print, aka the two bugs that found us</h2>
-
-                <p>None of this survived contact with reality without corrections, and both corrections generalize.</p>
-
-                <p><strong>1. Your constraint may be silently off.</strong> Our first "constrained" runs contained markdown fences and English prose — impossible under the grammar. Cause: vLLM drops grammar enforcement for parallel-sampling requests (<code>n &gt; 1</code>), and separately can <em>silently fall back to unconstrained decoding</em> when the backend hits a per-request error (<code>disable_fallback=False</code> is the default). Nothing errors; you just get unmasked tokens wearing a constrained label. The Goedel row above carries an asterisk precisely because of this — it's a partial-enforcement run, honestly degraded. If you do this yourself: request <code>n=1</code>, pin the backend server-side, and <strong>assert enforcement post-hoc</strong> (zero fences in constrained output is a cheap smoke test). A verifier layer that can fail toward false confidence will, given time — this is the same lesson we've hit before, now confirmed from the serving side too.</p>
-
-                <p><strong>2. Permissive grammars quietly un-forbid.</strong> We deliberately left <code>sorry</code> out of the grammar. It showed up anyway: 2.5% of constrained generations contained it (vs 0.3% unconstrained), because the generic <code>IDENT ARGS</code> catch-all re-admits any keyword-shaped string <em>as an argument</em> — <code>exact sorry</code> parses fine. If you want hard guarantees ("never emit sorry"), a catch-all is a soft guarantee at best — and since llguidance's regex engine has no lookaheads, in-grammar exclusion isn't even expressible; the fix is generate→validate→resample (<code>hardened_generate.py</code> in the repo), which costs ~1.03 generations per sample at the observed violation rate. More generally: auditing what your fallback admits matters as much as what your named productions accept.</p>
-
-                <p>Also worth stating plainly: "reaches the kernel" here means <em>crosses the syntactic gate</em> — guaranteed parseable as a tactic application, hence submittable for evaluation. It is not a promise the proof succeeds, nor that our CFG's permissive argument slots match Lean's own parser exactly. And the hallucination checker is a name-table lookup with known edge cases; it's the same oracle for both arms, so the comparison stands, but individual percentages carry ±few-point uncertainty.</p>
-
-                <h2>Where this leaves us</h2>
-
-                <p>Grammar-constrained decoding for Lean tactics remains unpublished territory as of this writing — we could find no prior work applying token-level masking to tactic generation, which still surprises us given how little it costs and how cleanly it addresses the least interesting failure mode (syntax) in service of the most important resource (kernel contact).</p>
-
-                <p>The architecture this points at has three parts, each doing one job: <strong>the grammar maximizes contact</strong> between generator and oracle; <strong>the kernel converts contact into graded, per-step truth</strong>; and an interaction layer (Pantograph-style state DAG) turns each contact into step-level rewards rather than pass/fail verdicts. None of the three makes the model smarter. Together they decide how much of what the model already knows can be converted into learning signal per GPU-hour.</p>
-
-                <p>The next experiment is obvious and cheap: wire the same constrained decoder into a closed loop against a real kernel and measure pass@k on core-Lean goals — feedback <em>quality</em>, not just contact rate. But the yield result alone justifies the machinery: if you're training a prover and a quarter to half of your sampled tokens die at the parser, the cheapest capability gain available isn't a bigger model. It's making sure every token gets to speak to the judge.</p>
-
-                <h2>References</h2>
-
-                <div class="refs">
-                    <p>Shao, Z., Wang, P., Zhu, Q., Xu, R., Song, J., Bi, X., et al. (2024). <a href="https://arxiv.org/abs/2402.03300">DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models</a>. arXiv:2402.03300. <span style="color: var(--muted);">(introduces GRPO)</span></p>
-                    <p>Hui, B., Yang, J., Cui, Z., Yang, J., Liu, D., Zhang, L., et al. (2024). <a href="https://arxiv.org/abs/2409.12186">Qwen2.5-Coder Technical Report</a>. arXiv:2409.12186.</p>
-                    <p>Lin, Y., Wang, H., Liu, H., et al. (2024). <a href="https://arxiv.org/abs/2405.04088">Goedel-Prover: An Open-Source Tool for Automated Theorem Proving</a>. arXiv:2405.04088. <span style="color: var(--muted);">(Goedel-Prover-V2 is a later checkpoint from the same team)</span></p>
-                    <p>Kwon, W., Li, Z., Zhuang, S., Sheng, Y., Zheng, L., Yu, C. H., et al. (2023). <a href="https://arxiv.org/abs/2309.06180">Efficient Memory Management for Large Language Model Serving with PagedAttention</a>. SOSP 2023. <span style="color: var(--muted);">(vLLM)</span></p>
-                    <p>Microsoft. <a href="https://github.com/microsoft/llguidance">llguidance</a>: Foundation for structured outputs in vLLM and guidance-based constrained decoding.</p>
-                    <p>Aniva, L., et al. <a href="https://github.com/leanprover/Pantograph">Pantograph</a>: A Machine-to-Machine Interaction System for Lean 4.</p>
-                    <p>Ngugi, S. (2026). <a href="/posts/2026-08-22-lean-tactic-language-cfg.html">Lean's Tactic Language Is Smaller Than It Looks</a>. Companion post.</p>
-                </div>
 
                 <div class="cite-box">
                     <div class="cite-label">Cite this post</div>
                     <pre><code>@misc{ngugi2026quarter,
-  title        = {A Quarter of Your Prover's Tokens Never Reach the Judge},
+  title        = {How a Grammar Changes AI-Generated Mathematical Proof Steps},
   author       = {Ngugi, Stanley},
   year         = {2026},
   howpublished = {\url{https://stanleyngugi.netlify.app/posts/2026-08-22-grammar-constrained-decoding-lean.html}},
-  note         = {Companion code: \url{https://github.com/stanleyngugi/lean-tactic-research}}
+  note         = {Revised September 5, 2026. Companion code: \url{https://github.com/stanleyngugi/ai-proof-grammars}}
 }</code></pre>
                 </div>
 
                 <hr style="margin: 48px 0;">
 
                 <p style="font-size: 15px;">
-                    <em>Artifacts: <a href="https://github.com/stanleyngugi/lean-tactic-research">github.com/stanleyngugi/lean-tactic-research</a> →
-                    <code>post2-constrained-decoding/</code> (generation, scoring and yield scripts, raw generations, score CSVs) plus shared
-                    <code>data/</code> (goal set, keyword table, 163k-declaration name table). Stack: vLLM 0.10.2 + llguidance on a single
-                    RTX A5000; total compute ≈ 2.5 GPU-hours.</em>
+                    <a href="https://github.com/stanleyngugi/ai-proof-grammars">Companion code and evidence</a> · <a href="/content/02-constrained-decoding.md">Markdown source</a>
                 </p>
 
                 <p style="font-size: 15px;">
-                    <em>This is the companion to <a href="/posts/2026-08-22-lean-tactic-language-cfg.html">Lean's Tactic Language Is Smaller Than It Looks</a>, which covers how the grammar was built and measured.</em>
+                    <em>This is the companion to <a href="/posts/2026-08-22-lean-tactic-language-cfg.html">Building a Grammar for AI-Generated Mathematical Proof Steps</a>, which covers how the grammar was built and measured.</em>
                 </p>
 
                 <p style="margin-top: 40px;">
@@ -242,10 +474,11 @@
         </main>
 
         <footer>
-            © 2026 Stanley Ngugi · <a href="https://github.com/stanleyngugi/lean-tactic-research">code</a>
+            © 2026 Stanley Ngugi · <a href="https://github.com/stanleyngugi/ai-proof-grammars">code</a>
         </footer>
     </div>
 
     <script src="/main.js"></script>
 </body>
 </html>
+
