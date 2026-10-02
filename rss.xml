@@ -14,11 +14,11 @@
       <description>Grammar-constrained decoding makes 100% of generated Lean tactics parseable at zero latency cost — while hallucination stays at ~50%. That asymmetry is the point.</description>
     </item>
     <item>
-      <title>Lean's Tactic Language Is Smaller Than It Looks</title>
+      <title>Building a Grammar for AI-Generated Mathematical Proof Steps</title>
       <link>https://stanleyngugi.netlify.app/posts/2026-08-22-lean-tactic-language-cfg.html</link>
       <guid isPermaLink="true">https://stanleyngugi.netlify.app/posts/2026-08-22-lean-tactic-language-cfg.html</guid>
       <pubDate>Sat, 22 Aug 2026 00:00:00 +0000</pubDate>
-      <description>A 53-production context-free grammar for Lean 4 tactics covers 99.86% of every tactic line in Mathlib — and the methodology transfers to Rocq and Isabelle.</description>
+      <description>What a small grammar captures, what its fallback gives away, and how to measure the difference.</description>
     </item>
     <item>
       <title>Taming Incidental Polysemanticity in Toy Models: How Network Training Choices Affect Feature Entanglement</title>
@@ -29,3 +29,4 @@
     </item>
   </channel>
 </rss>
+
