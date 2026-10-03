@@ -150,7 +150,9 @@ def render(post):
 
 
 def main():
-    manifest = {f"{post['slug']}.md": render(post) for post in POSTS}
+    path = ROOT / "content" / "research-posts-manifest.json"
+    manifest = json.loads(path.read_text()) if path.exists() else {}
+    manifest.update({f"{post['slug']}.md": render(post) for post in POSTS})
     (ROOT / "content" / "research-posts-manifest.json").write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
