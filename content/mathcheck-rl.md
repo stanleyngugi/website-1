@@ -1,4 +1,4 @@
-# Grading Mathematical Answers Without Precomputed Answer Keys
+# Grading Mathematical Answers Without Answer Keys
 
 > MathCheck RL turns frozen mathematical specifications into rewards for
 > bounded answers and complete finite certificates. The model supplies data;

@@ -35,11 +35,11 @@
       <description>An exploratory study using sparse autoencoders to measure how L1 vs L2 regularization, initialization, and activation choices shape polysemanticity in overcomplete networks.</description>
     </item>
     <item>
-      <title>Grading Mathematical Answers Without Precomputed Answer Keys</title>
+      <title>Grading Mathematical Answers Without Answer Keys</title>
       <link>https://stanleyngugi.netlify.app/posts/mathcheck-rl.html</link>
       <guid isPermaLink="true">https://stanleyngugi.netlify.app/posts/mathcheck-rl.html</guid>
       <pubDate>Sat, 12 Sep 2026 00:00:00 +0000</pubDate>
-      <description>Formal verification of bounded submissions against frozen specifications, used as RL rewards without precomputed answer keys.</description>
+      <description>Formal verification of bounded submissions against frozen specifications, used as RL rewards without stored answer keys.</description>
     </item>
     <item>
       <title>Building a Lean-Backed Verifier for Bounded Mathematical Answers</title>

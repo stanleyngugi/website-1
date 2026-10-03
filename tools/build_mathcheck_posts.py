@@ -20,7 +20,8 @@ POSTS = (
     {
         "name": "MathCheck RL",
         "slug": "mathcheck-rl",
-        "description": "Formal verification of bounded mathematical submissions against frozen specifications, producing RL rewards without precomputed answer keys.",
+        "description": "Formal verification of bounded mathematical submissions against frozen specifications, producing RL rewards without stored answer keys.",
+        "previous_title": "Grading Mathematical Answers Without Precomputed Answer Keys",
         "repo": "https://github.com/stanleyngugi/mathcheck-rl",
         "source_path": "TECHNICAL_ARTICLE.md",
         "publication": "2026-09-12",
@@ -126,6 +127,11 @@ def render(post):
         f'<script type="application/ld+json">{json.dumps(metadata, ensure_ascii=False)}</script>\n'
         "</head>",
     )
+    title_history = (
+        f'<p class="entry-date article-title-history">Previously titled '
+        f'“{escape(post["previous_title"])}”. The article URL is unchanged.</p>\n'
+        if post.get("previous_title") else ""
+    )
     bib = (
         f"@misc{{ngugi2026{post['slug'].replace('-', '')},\n"
         f"  title = {{{title}}},\n  author = {{Ngugi, Stanley}},\n"
@@ -137,7 +143,8 @@ def render(post):
         '<article class="prose cfg-article mathcheck-article">\n'
         f'<header class="article-header"><h1>{escape(title)}</h1>\n'
         f'<div class="entry-date">{minutes} min read · {post["topics"]} · '
-        f'<a href="{post["repo"]}">code ↗</a></div></header>\n'
+        f'<a href="{post["repo"]}">code ↗</a></div>\n'
+        f'{title_history}</header>\n'
         f'{article_body}\n'
         '<div class="cite-box"><div class="cite-label">Cite this post</div>\n'
         f'<p><a href="/citations/{post["slug"]}.bib" download>Download BibTeX</a></p>\n'
