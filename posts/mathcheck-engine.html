@@ -31,7 +31,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/styles.css">
 <link rel="canonical" href="https://stanleyngugi.netlify.app/posts/mathcheck-engine.html">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "Building a Lean-Backed Verifier for Bounded Mathematical Answers", "description": "A verifier that turns bounded mathematical specifications and candidate answers into Lean programs, checks the complete finite domain in isolation, and records what each verdict means.", "author": {"@type": "Person", "name": "Stanley Ngugi"}, "datePublished": "2026-09-12", "url": "https://stanleyngugi.netlify.app/posts/mathcheck-engine.html", "mainEntityOfPage": "https://stanleyngugi.netlify.app/posts/mathcheck-engine.html"}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "Building a Lean-Backed Verifier for Bounded Mathematical Answers", "description": "A verifier that turns bounded mathematical specifications and candidate answers into Lean programs, checks the complete finite domain in isolation, and records what each verdict means.", "author": {"@type": "Person", "name": "Stanley Ngugi"}, "datePublished": "2026-09-12", "url": "https://stanleyngugi.netlify.app/posts/mathcheck-engine.html", "mainEntityOfPage": "https://stanleyngugi.netlify.app/posts/mathcheck-engine.html", "dateModified": "2026-10-03"}</script>
 </head>
 <body>
     <div class="container">
@@ -98,7 +98,7 @@
 <p>MathCheck Engine tries to preserve those differences all the way into its API and evidence.</p>
 <h2 id="the-path-from-a-specification-to-a-verdict">The path from a specification to a verdict</h2>
 <p>The main pipeline is small enough to describe end to end:</p>
-<pre class="mermaid">flowchart LR
+<pre class="mermaid">flowchart TD
     A[Environment-owned bounded specification] --&gt; B[Restricted parser and cost checks]
     C[Model-supplied candidate or certificate] --&gt; D[Candidate schema checks]
     B --&gt; E[Trusted Lean source template]
@@ -299,7 +299,7 @@ finally:
 <p>Formal verification is often introduced through universal theorems and handwritten proofs. Those are important, but they are not the only useful entry point. Many evaluation and training tasks already have finite mathematical structure. If the environment can state that structure completely, a model can submit the mathematical object it found while a trusted checker constructs the formal proposition.</p>
 <p>The result is modest but meaningful. We do not learn that the model understood the original prose, that its reasoning was sound, or that a pattern continues forever. We learn that one exact candidate satisfies one exact bounded contract, under one recorded toolchain and execution boundary.</p>
 <p>That is less glamorous than “verified mathematics.” It is also far more useful than a green check mark whose meaning no one can reconstruct later.</p>
-<p>MathCheck Engine is public under the MIT license at <a href="https://github.com/stanleyngugi/mathcheck-engine">https://github.com/stanleyngugi/mathcheck-engine</a>. Version 0.3.2 and its artifacts are available at <a href="https://github.com/stanleyngugi/mathcheck-engine/releases/tag/v0.3.2">https://github.com/stanleyngugi/mathcheck-engine/releases/tag/v0.3.2</a>. The companion article, <a href="/posts/mathcheck-rl.html">How MathCheck RL Replaces Hidden Answer Keys with Lean-Checked Rewards</a>, shows how this checking boundary becomes a reinforcement-learning reward.</p>
+<p>MathCheck Engine is public under the MIT license at <a href="https://github.com/stanleyngugi/mathcheck-engine">https://github.com/stanleyngugi/mathcheck-engine</a>. Version 0.3.2 and its artifacts are available at <a href="https://github.com/stanleyngugi/mathcheck-engine/releases/tag/v0.3.2">https://github.com/stanleyngugi/mathcheck-engine/releases/tag/v0.3.2</a>. The companion article, <a href="https://stanleyngugi.netlify.app/posts/mathcheck-rl.html">Grading Mathematical Answers Without Precomputed Answer Keys</a>, shows how this checking boundary becomes a reinforcement-learning reward.</p>
 
 <div class="cite-box"><div class="cite-label">Cite this post</div>
 <p><a href="/citations/mathcheck-engine.bib" download>Download BibTeX</a></p>

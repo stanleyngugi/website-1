@@ -20,7 +20,7 @@ POSTS = (
     {
         "name": "MathCheck RL",
         "slug": "mathcheck-rl",
-        "description": "Math RL without hidden answer keys: prompts and Lean checks come from the same bounded specification, while models submit ordinary answers or complete finite certificates.",
+        "description": "Formal verification of bounded mathematical submissions against frozen specifications, producing RL rewards without precomputed answer keys.",
         "repo": "https://github.com/stanleyngugi/mathcheck-rl",
         "source_path": "TECHNICAL_ARTICLE.md",
         "publication": "2026-09-12",
@@ -118,7 +118,7 @@ def render(post):
         "description": post["description"],
         "author": {"@type": "Person", "name": "Stanley Ngugi"},
         "datePublished": post["publication"], "url": url,
-        "mainEntityOfPage": url,
+        "mainEntityOfPage": url, **({"dateModified": "2026-10-03"} if post["slug"].startswith("mathcheck-") else {}),
     }
     prefix = prefix.replace(
         "</head>",
@@ -158,11 +158,13 @@ def render(post):
 
 
 def main():
-    manifest = {f"{post['slug']}.md": render(post) for post in POSTS}
+    path = ROOT / "content" / "research-posts-manifest.json"
+    manifest = json.loads(path.read_text()) if path.exists() else {}
+    manifest.update({f"{post['slug']}.md": render(post) for post in POSTS if post["slug"].startswith("mathcheck-")})
     (ROOT / "content" / "research-posts-manifest.json").write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
-    print("Rendered three research posts from unchanged Markdown copies.")
+    print("Rendered MathCheck posts; preserved unrelated article provenance.")
 
 
 if __name__ == "__main__":

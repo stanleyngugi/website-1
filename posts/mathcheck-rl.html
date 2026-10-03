@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>How MathCheck RL Replaces Hidden Answer Keys with Lean-Checked Rewards - Stanley Ngugi</title>
-    <meta name="description" content="Math RL without hidden answer keys: prompts and Lean checks come from the same bounded specification, while models submit ordinary answers or complete finite certificates.">
+    <title>Grading Mathematical Answers Without Precomputed Answer Keys - Stanley Ngugi</title>
+    <meta name="description" content="Formal verification of bounded mathematical submissions against frozen specifications, producing RL rewards without precomputed answer keys.">
     <meta name="author" content="Stanley Ngugi">
-    <meta property="og:title" content="How MathCheck RL Replaces Hidden Answer Keys with Lean-Checked Rewards">
-    <meta property="og:description" content="Math RL without hidden answer keys: prompts and Lean checks come from the same bounded specification, while models submit ordinary answers or complete finite certificates.">
+    <meta property="og:title" content="Grading Mathematical Answers Without Precomputed Answer Keys">
+    <meta property="og:description" content="Formal verification of bounded mathematical submissions against frozen specifications, producing RL rewards without precomputed answer keys.">
     <meta property="og:type" content="article">
     <meta property="og:url" content="https://stanleyngugi.netlify.app/posts/mathcheck-rl.html">
     <meta property="og:image" content="https://stanleyngugi.netlify.app/og-image.png">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="citation_title" content="How MathCheck RL Replaces Hidden Answer Keys with Lean-Checked Rewards">
+    <meta name="citation_title" content="Grading Mathematical Answers Without Precomputed Answer Keys">
     <meta name="citation_author" content="Ngugi, Stanley">
     <meta name="citation_publication_date" content="2026-09-12">
     <meta name="citation_online_date" content="2026-09-12">
@@ -31,7 +31,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/styles.css">
 <link rel="canonical" href="https://stanleyngugi.netlify.app/posts/mathcheck-rl.html">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "How MathCheck RL Replaces Hidden Answer Keys with Lean-Checked Rewards", "description": "Math RL without hidden answer keys: prompts and Lean checks come from the same bounded specification, while models submit ordinary answers or complete finite certificates.", "author": {"@type": "Person", "name": "Stanley Ngugi"}, "datePublished": "2026-09-12", "url": "https://stanleyngugi.netlify.app/posts/mathcheck-rl.html", "mainEntityOfPage": "https://stanleyngugi.netlify.app/posts/mathcheck-rl.html"}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "Grading Mathematical Answers Without Precomputed Answer Keys", "description": "Formal verification of bounded mathematical submissions against frozen specifications, producing RL rewards without precomputed answer keys.", "author": {"@type": "Person", "name": "Stanley Ngugi"}, "datePublished": "2026-09-12", "url": "https://stanleyngugi.netlify.app/posts/mathcheck-rl.html", "mainEntityOfPage": "https://stanleyngugi.netlify.app/posts/mathcheck-rl.html", "dateModified": "2026-10-03"}</script>
 </head>
 <body>
     <div class="container">
@@ -49,116 +49,102 @@
             <a href="/" class="back-link">← back home</a>
 
             <article class="prose cfg-article mathcheck-article">
-<header class="article-header"><h1>How MathCheck RL Replaces Hidden Answer Keys with Lean-Checked Rewards</h1>
-<div class="entry-date">19 min read · RL, formal methods · <a href="https://github.com/stanleyngugi/mathcheck-rl">code ↗</a></div></header>
+<header class="article-header"><h1>Grading Mathematical Answers Without Precomputed Answer Keys</h1>
+<div class="entry-date">12 min read · RL, formal methods · <a href="https://github.com/stanleyngugi/mathcheck-rl">code ↗</a></div></header>
 <blockquote>
-<p>Inside an answer-key-free math RL environment that turns complete bounded specifications into generated Lean checks, evaluates them with <code>native_decide</code>, and asks models for answers or certificates—not proof scripts.</p>
+<p>MathCheck RL uses environment-owned specifications to turn bounded mathematical answers into Lean-checked rewards. The model supplies an answer or a complete finite certificate; trusted code constructs the formal checking obligation.</p>
 </blockquote>
-<p>Reinforcement learning needs a reward. Mathematics seems unusually well suited to this requirement: answers are often short, exact, and easy to compare. Put a number in a dataset, ask a model to solve the problem, and return 1 when the strings agree.</p>
-<p>That works until the answer is written as <code>33.0</code>, the problem admits several equivalent forms, or the task asks for a structured object rather than a scalar. It becomes more fragile when the reference program encodes the wrong boundary, when a hidden test suite covers only familiar cases, or when the verifier times out and the training system records “wrong answer.” Most importantly, the answer key says what output was expected but often hides the contract that made that output correct.</p>
-<p>MathCheck RL explores a different arrangement for a deliberately bounded slice of mathematics. Each task stores a complete machine-readable specification: a finite domain and the expression, predicate, objective, or relation to evaluate over it. The model sees a human-readable prompt derived from that specification and submits only an integer candidate or a complete finite certificate. The environment sends both objects to MathCheck Engine, which generates the Lean checker and returns a typed verdict.</p>
-<p>The companion article, <a href="/posts/mathcheck-engine.html">Building a Lean-Backed Verifier for Bounded Mathematical Answers</a>, develops the verifier and trust boundary in detail. This article concentrates on the task, reward, evaluation, and distribution layers built on top of it.</p>
-<p>There is no expected candidate stored in the primary task contract.</p>
-<p>This does not make the environment ground-truth-free. The specification is the ground truth. It also does not make the system a universal math verifier. The current families are exact integer evaluation, bounded sums, bounded counts, bounded minima, and complete relations over bounded integer pairs. The point is to make the reward's meaning unusually clear inside that surface.</p>
-<details class="article-contents"><summary>In this article</summary><nav aria-label="Article contents"><ul><li><a href="#why-a-correct-reward-can-still-be-a-bad-scientific-instrument">Why a correct reward can still be a bad scientific instrument</a></li>
-<li><a href="#what-answer-key-free-means-here">What answer-key-free means here</a></li>
-<li><a href="#one-source-for-the-prompt-and-the-checker">One source for the prompt and the checker</a></li>
-<li><a href="#the-model-produces-data-not-its-own-theorem">The model produces data, not its own theorem</a></li>
-<li><a href="#the-complete-reward-path">The complete reward path</a></li>
-<li><a href="#binary-reward-without-binary-explanations">Binary reward without binary explanations</a></li>
-<li><a href="#avoiding-duplicate-verification-under-concurrency">Avoiding duplicate verification under concurrency</a></li>
-<li><a href="#why-partial-credit-is-postponed">Why partial credit is postponed</a></li>
-<li><a href="#why-the-old-sequence-environment-remains-in-the-repository">Why the old sequence environment remains in the repository</a></li>
-<li><a href="#what-the-historical-training-run-actually-showed">What the historical training run actually showed</a></li>
-<li><a href="#how-mathcheck-rl-fits-verifiers-v1">How MathCheck RL fits Verifiers v1</a></li>
-<li><a href="#publishing-on-prime-hub">Publishing on Prime Hub</a></li>
-<li><a href="#what-has-been-validated">What has been validated</a></li>
-<li><a href="#reproducing-the-local-environment-path">Reproducing the local environment path</a></li>
-<li><a href="#what-we-can-claimand-what-we-cannot">What we can claim—and what we cannot</a></li>
-<li><a href="#where-the-project-can-go-next">Where the project can go next</a></li>
-<li><a href="#a-better-unit-of-trust">A better unit of trust</a></li></ul></nav></details>
-<h2 id="why-a-correct-reward-can-still-be-a-bad-scientific-instrument">Why a correct reward can still be a bad scientific instrument</h2>
-<p>A mathematical reward function has at least four jobs.</p>
-<p>First, it has to recognize acceptable outputs without rewarding malformed or ambiguous ones. If the task requires one JSON object, silently extracting the first number from a paragraph creates an undocumented language around the official language.</p>
-<p>Second, it has to check the right proposition. Testing that every submitted pair satisfies a condition does not establish that the model listed every satisfying pair. Testing a proposed minimum for feasibility does not establish minimality. Running a sequence program on ten indices does not prove its value at the eleventh, much less for every natural number.</p>
-<p>Third, it has to fail safely. A missing compiler, a sandbox configuration error, and a mathematically false claim may all deserve zero reward during training, but they are not the same event. Conflating them corrupts evaluation labels and makes operational regressions look like changes in model ability.</p>
-<p>Fourth, it has to behave consistently under the framework's concurrency model. A reward and a diagnostic metric may be computed at the same time. If both launch an expensive native check, one rollout is compiled twice. If they race through mutable state, they may even record different timings or failure modes.</p>
-<p>These are not exotic formal-methods concerns. They are ordinary measurement concerns. A reward is part of the experiment, and an experiment is only as interpretable as the instrument producing its labels.</p>
-<h2 id="what-answer-key-free-means-here">What answer-key-free means here</h2>
-<p>The phrase is easy to overstate, so it is worth defining precisely.</p>
-<p>For a scalar MathCheck RL task, the environment stores a <code>ProblemSpec</code> like:</p>
+<p>A mathematical problem can be clear before its answer is known. We can specify which integers are allowed, what condition they must satisfy, and what makes a solution the least one. Can that specification supply a reinforcement-learning reward without someone first computing and storing the correct answer?</p>
+<p>For a restricted class of decidable problems, yes. MathCheck RL explores <strong>formal verification of bounded mathematical submissions against frozen, environment-owned specifications, producing rewards without precomputed answer keys</strong>. The specification carries the ground truth. The checker determines whether a proposed answer satisfies it.</p>
+<p>This motivation is different from fixing an exact-string grader. Tools such as <a href="https://github.com/huggingface/Math-Verify">Math-Verify</a> already handle numeric and symbolic equivalence. Representations such as <code>33</code> and <code>33.00</code> can denote the same answer; nearby values require whatever exactness or tolerance the task actually specifies. A capable answer comparator is useful when a reference answer exists. This project asks how to build the reward from the problem's contract instead.</p>
+<p>The present implementation is small: integer evaluation, bounded sums, counts, minima, and complete relations over bounded integer pairs. That narrow surface lets us inspect what a reward means before asking whether optimizing it helps a model learn.</p>
+<details class="article-contents"><summary>In this article</summary><nav aria-label="Article contents"><ul><li><a href="#follow-one-problem-from-statement-to-reward">Follow one problem from statement to reward</a></li>
+<li><a href="#what-is-frozen-and-what-the-model-controls">What is frozen, and what the model controls</a></li>
+<li><a href="#why-lean-if-python-can-evaluate-the-specification">Why Lean if Python can evaluate the specification?</a></li>
+<li><a href="#how-this-differs-from-theorem-proving-rl">How this differs from theorem-proving RL</a></li>
+<li><a href="#a-zero-reward-needs-an-explanation">A zero reward needs an explanation</a></li>
+<li><a href="#where-specifications-could-come-from">Where specifications could come from</a></li>
+<li><a href="#what-the-evidence-supports-and-what-comes-next">What the evidence supports, and what comes next</a></li></ul></nav></details>
+<h2 id="follow-one-problem-from-statement-to-reward">Follow one problem from statement to reward</h2>
+<p>Consider this task:</p>
+<blockquote>
+<p>Find the least integer x in the half-open interval [0, 30) such that x leaves remainder 2 when divided by 3 and remainder 1 when divided by 5.</p>
+</blockquote>
+<p>The environment freezes the following object before the model responds:</p>
 <pre class="json"><code>{
-  &quot;kind&quot;: &quot;count&quot;,
-  &quot;expression&quot;: &quot;x%7 == 2 and x%5 != 0&quot;,
-  &quot;start&quot;: 3,
-  &quot;stop&quot;: 71
+  &quot;kind&quot;: &quot;minimum&quot;,
+  &quot;expression&quot;: &quot;x%3 == 2 and x%5 == 1&quot;,
+  &quot;start&quot;: 0,
+  &quot;stop&quot;: 30
 }</code></pre>
-<p>It does not store a field saying that the answer is, for example, 9. When the model submits a candidate, the verifier combines that candidate with the frozen specification and checks the full finite computation.</p>
-<p>For a pair task, the environment stores a predicate and two bounded axes. It does not store the expected pair list. The model must submit the complete relation and its count. Lean constructs the relation from the specification and checks exact equality.</p>
-<p>So “answer-key-free” means:</p>
-<ul>
-<li>no expected candidate is stored or compared at reward time;</li>
-<li>the environment does store and trust a complete bounded checker specification;</li>
-<li>the candidate cannot replace or weaken that specification;</li>
-<li>reward is computed against the whole declared finite contract;</li>
-<li>success says nothing beyond the encoded bounds;</li>
-<li>specification authorship and prose-to-specification fidelity remain trusted upstream steps.</li>
-</ul>
-<p>The older Verifiers compatibility interface requires a dataset column named <code>answer</code>. In MathCheck RL that column contains serialized checker specification data because the framework passes it privately to the rubric. It contains no expected candidate and is never rendered into the model prompt. Every row also records <code>contains_expected_answer: false</code> so the unusual use is inspectable.</p>
-<p>The distinction is between hiding a result and hiding a rule. MathCheck RL hides neither from its own reward system: it retains the rule, exposes the rule in the prompt, and asks the model to produce the result.</p>
-<h2 id="one-source-for-the-prompt-and-the-checker">One source for the prompt and the checker</h2>
-<p>Task generation starts with the specification, not with prose. A deterministic generator creates one of four primary families:</p>
-<ul>
-<li><code>bounded_count</code> chooses a finite interval and modular predicate;</li>
-<li><code>bounded_sum</code> chooses a finite interval and integer polynomial-like expression;</li>
-<li><code>bounded_minimum</code> chooses congruence conditions with a solution in the stated interval;</li>
-<li><code>bounded_pair_count</code> chooses two small integer axes and a pair predicate.</li>
-</ul>
-<p>The prompt is rendered from the same immutable object later used for checking. That removes one common source of mismatch: separately hand-maintained prompt text and reward code.</p>
-<p>Generation is reproducible from the family and seed. Task identifiers include the beginning of the specification digest. Duplicate specifications are removed. Training and evaluation generation keeps an exclusion set of digests and will not emit an evaluation task whose exact canonical specification appeared in training.</p>
-<p>Take one generated minimum task as an example. The generator first chooses the interval and two modular constraints, then constructs a <code>ProblemSpec</code>. The prompt renderer turns that object into “find the least integer” prose and adds the exact fenced-JSON contract. The dataset serializer stores the same specification privately for the verifier. At reward time, the candidate is parsed independently, and MathCheck Engine generates a proposition containing membership in the interval, satisfaction of the predicate, and the failure of the predicate at every smaller value. There is no separate handwritten answer to drift out of sync with any of those stages.</p>
-<p>This does not eliminate all duplication. Prompt wording and formal expression semantics still need paired tests, and any future natural-language importer would introduce a translation boundary. It does give the current procedural families a single mathematical source of truth.</p>
-<p>Digest disjointness is useful, but it is not magic. Two different modular predicates may teach nearly identical strategies. Procedural generation does not prove semantic novelty, prevent contamination from external data, or guarantee transfer to harder distributions. It establishes the narrower and auditable fact that the exact encoded tasks do not overlap.</p>
-<h2 id="the-model-produces-data-not-its-own-theorem">The model produces data, not its own theorem</h2>
-<p>A scalar response contains exactly one fenced JSON object:</p>
+<p>There is no expected-answer field. The prompt renderer describes the same object in prose and adds the submission schema. The model must return exactly one fenced JSON object:</p>
 <pre class="text"><code>```json
-{&quot;answer&quot;: 17}
+{&quot;answer&quot;: 11}
 ```</code></pre>
-<p>A complete pair response looks like:</p>
-<pre class="text"><code>```json
-{
-  &quot;answer&quot;: 2,
-  &quot;pairs&quot;: [[0, 4], [1, 3]]
-}
-```</code></pre>
-<p>The parser uses a full-match rule: leading commentary, trailing prose, two fences, or a bare object are rejected. JSON must decode to an object with exactly the expected keys. Duplicate JSON keys are rejected rather than being silently overwritten. Booleans do not count as integers. Scalar answers must be nonnegative and bounded in size. Pair lists must contain two-element integer arrays, be lexicographically sorted, contain no duplicates, and remain within the certificate limits.</p>
-<p>The model cannot submit a <code>specification</code> field. It cannot replace <code>x%7 == 2</code> with <code>True</code>, extend the interval to make its answer fit, or provide Lean source whose theorem states a convenient proposition. The primary environment treats the model's output as data.</p>
-<p>That is a significant difference from proof-generation environments. A model could be asked to produce a Lean proof for an environment-fixed theorem, and that would be a valid but different contract. MathCheck RL instead asks the model to solve the mathematical task and leaves formal checker construction to trusted code.</p>
-<h2 id="the-complete-reward-path">The complete reward path</h2>
-<p>The runtime path is:</p>
-<pre class="mermaid">flowchart TD
-    A[Seeded bounded specification] --&gt; B[Prompt generated from the same object]
-    B --&gt; C[Model completion]
-    C --&gt; D[Strict fenced-JSON extraction]
-    D --&gt; E[Candidate or certificate schema checks]
-    A --&gt; F[Trusted MathCheck Engine template]
-    E --&gt; F
-    F --&gt; G[Fail-closed lean-isolated process]
-    G --&gt; H[Lean 4.23.0 native decision]
-    H --&gt; I[Typed immutable verdict]
-    I --&gt; J[Binary reward]
-    I --&gt; K[Diagnostic status and metrics]</pre>
-<p>After parsing, MathCheck RL resolves only an explicitly configured <code>lean-isolated</code> launcher. It will not search a retired checkout, borrow a sibling project's wrapper, or fall back to an arbitrary host Lean binary. The runner requires Lean 4.23.0 exactly and uses the one-shot command-line path.</p>
-<p>For scalar tasks, MathCheck Engine generates a bounded evaluation, fold, filter, or leastness proposition. For pair tasks, it generates the entire finite relation and checks exact list equality and cardinality. <code>native_decide</code> performs the concrete decision in Lean.</p>
-<p>The result returns more than accepted or rejected. It includes the status, stage, reason, duration, backend, scope, specification digest, submission digest, diagnostics, and checker invocation count.</p>
-<h2 id="binary-reward-without-binary-explanations">Binary reward without binary explanations</h2>
-<p>The authoritative reward remains intentionally simple:</p>
-<ul>
-<li><code>1.0</code> when the complete encoded bounded result is accepted;</li>
-<li><code>0.0</code> otherwise.</li>
-</ul>
-<p>A richer reward could give partial credit for formatting, reaching the compiler, or listing some valid pairs. That may eventually be useful for curriculum design, but it also changes the optimization target and can reward shortcuts. MathCheck RL keeps stage information as a zero-weight metric rather than quietly shaping the main reward.</p>
-<p>The diagnostic model separates five statuses:</p>
+<p>Let P(x) denote the two congruence conditions. The mathematical obligation for a candidate a is:</p>
+<pre class="text"><code>0 ≤ a &lt; 30
+and P(a)
+and, for every x in [0, 30), x &lt; a implies not P(x).</code></pre>
+<p>The final clause matters. Both 11 and 26 satisfy P; only 11 is the least solution in the interval. A checker that tests feasibility alone would reward 26 for answering a different question.</p>
+<p>MathCheck Engine translates the restricted expression into Lean integer arithmetic. Its trusted template defines a Boolean decision for the complete obligation, including an enumeration of all smaller values in the declared interval. A generated theorem is discharged with <code>native_decide</code>. The current implementation wraps this Boolean in its shared finite checker template; it does not ask the model to invent the statement or write the proof script.</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable data table"><table>
+<thead>
+<tr class="header">
+<th>Submission</th>
+<th>Meaning</th>
+<th>Expected outcome on a healthy backend</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>{"answer": 11}</code></td>
+<td>Feasible and least</td>
+<td><code>checked_success</code>, reward 1</td>
+</tr>
+<tr class="even">
+<td><code>{"answer": 26}</code></td>
+<td>Feasible but not least</td>
+<td><code>mathematical_rejection</code>, reward 0</td>
+</tr>
+<tr class="odd">
+<td><code>{"answer": 12}</code></td>
+<td>Fails the predicate</td>
+<td><code>mathematical_rejection</code>, reward 0</td>
+</tr>
+<tr class="even">
+<td><code>{"answer": 41}</code></td>
+<td>Outside the interval</td>
+<td><code>mathematical_rejection</code>, reward 0</td>
+</tr>
+<tr class="odd">
+<td><code>{"answer": true}</code></td>
+<td>Violates the integer schema</td>
+<td><code>invalid_input</code>, reward 0</td>
+</tr>
+</tbody>
+</table></div>
+<p>The values in this walkthrough explain the controls. They are not stored as a reference answer in the task used for reward. The checker can compute the entire finite result internally: answer-key-free describes the supervision interface, not an algorithm that avoids solving the computation.</p>
+<p>The same distinction appears in pair tasks. If the contract asks for every pair satisfying a relation, checking each submitted pair establishes validity but leaves completeness open. MathCheck's pair checker constructs the entire relation over the declared rectangle and checks equality with the sorted, duplicate-free submitted list, together with its claimed cardinality. Leaving out a valid pair fails the contract even if every listed pair is valid.</p>
+<h2 id="what-is-frozen-and-what-the-model-controls">What is frozen, and what the model controls</h2>
+<p>The primary environment's unit of trust is a <code>SpecificationTask</code>: a prompt, family, identifier, and immutable specification. Today a deterministic procedural generator supplies count, sum, minimum, and pair-count tasks. The prompt and checker input derive from that same object. Exact evaluation is supported by the Engine and by directly constructed tasks.</p>
+<p>The model controls only its candidate or certificate. It cannot submit a new predicate, change the bounds, or add a convenient Lean theorem. A strict parser requires one JSON fence and no surrounding commentary. Duplicate JSON keys, extra fields, booleans used as integers, oversized inputs, and malformed pairs are rejected. Pair lists must satisfy the canonical ordering and uniqueness rules before checking.</p>
+<p>This is an intentionally exact submission language. Rejecting <code>33.00</code> as a JSON floating-point value here would be a schema decision, not evidence that modern mathematical graders cannot recognize equivalent numbers. A richer contract could admit other representations; it would need explicit parsing and semantics.</p>
+<p>The compatibility Verifiers API has a private column named <code>answer</code>. This project uses it to carry serialized specification data, because the rubric receives that column. It contains no expected candidate and is not rendered into the prompt. Rows mark <code>contains_expected_answer: false</code> to make this unusual interface inspectable.</p>
+<p>Specification digests identify the exact encoded task. Generated train and evaluation sets remove duplicates and exclude shared digests. This establishes exact specification separation. It does not establish that different modular problems require different strategies, that a public task was absent from pretraining, or that a model generalizes beyond these families.</p>
+<h2 id="why-lean-if-python-can-evaluate-the-specification">Why Lean if Python can evaluate the specification?</h2>
+<p>Python can implement every current check. It can enumerate an interval, compute a sum, reject a nonminimal solution, or compare complete pair lists. Exhaustive coverage comes from the contract and its implementation. Lean is not necessary to remove an answer key.</p>
+<p>The reason to explore Lean is the assurance architecture. The checking obligation has a typed formal representation, its definitions and bounds are visible in a generated artifact, and its discharge takes place within Lean's proof infrastructure. These are useful foundations for connecting future certificate checks to formal mathematical definitions. They do not establish that Lean is faster, cheaper, or more reliable than an independently tested Python implementation of these small computations.</p>
+<p>The analogy with code verification helps locate the claim. A program can be checked against a specification using tests, an executable interpreter, an SMT encoding, or a proof assistant. Which approach is appropriate depends on the semantic connection to the program, the proposition established, and the trusted machinery. Python can itself host a solver or proof checker. The choice is about how evidence is produced and checked, rather than the surface language alone.</p>
+<p>MathCheck uses compiled decision procedures. In the pinned <a href="https://lean-lang.org/doc/reference/4.23.0/Tactic-Proofs/Tactic-Reference/#native_decide">Lean 4.23.0 reference</a>, <code>native_decide</code> evaluates a decidable proposition through native compilation and relies on <code>Lean.ofReduceBool</code>. This expands the trusted base to include Lean's compiler and native execution. The result is a formal claim discharged by compiled computation, with that trust assumption; it is not kernel-only reduction.</p>
+<p>There are further trusted boundaries. Python parses and translates the restricted expression language, and a template constructs the obligation. This translator is tested, but it is not a formally verified compiler. The specification author remains responsible for the intended mathematics. A successful Lean check establishes the generated encoded claim under the pipeline's assumptions; it does not establish that an arbitrary prose question was faithfully translated.</p>
+<p>An independent Python evaluator is therefore useful as a differential control. Agreement on valid and deliberately invalid candidates, negative intermediate values, division semantics, boundaries, leastness, and completeness can expose implementation mistakes. Timing both backends can measure the cost of the chosen architecture. Agreement is evidence, not a proof that both implementations are correct.</p>
+<h2 id="how-this-differs-from-theorem-proving-rl">How this differs from theorem-proving RL</h2>
+<p>In a theorem-proving environment, the target statement is usually fixed and the model supplies a proof. A reference proof is unnecessary because the proof checker can validate another proof of that statement. MathCheck follows the same contract-first principle while asking for a different artifact: an answer or finite certificate.</p>
+<p>The environment does generate and discharge a formal claim. Saying that it performs no proving would obscure that fact. The narrower distinction is that the policy does not synthesize Lean proofs. Trusted code instantiates the frozen acceptance relation with the candidate and uses a decision procedure.</p>
+<p>Answer-finding also complicates comparisons with proof-synthesis systems. The <a href="https://www.nature.com/articles/s41586-025-09833-y">AlphaProof paper</a> describes injecting plausible answers when formalizing some answer-finding problems. A fixed theorem and a fixed relation over possible answers are related interfaces, but they are not interchangeable.</p>
+<p>Learning without answer labels is an existing research direction. <a href="https://arxiv.org/abs/2604.25419">JURY-RL</a>, a 2026 preprint, combines rollout-derived answer proposals with a Lean proof pipeline and a fallback when verification is inconclusive. MathCheck's current contribution is a smaller engineering experiment: restricted, independently specified decidable contracts connected to auditable reward verdicts. It does not claim to have introduced label-free mathematical RL.</p>
+<h2 id="a-zero-reward-needs-an-explanation">A zero reward needs an explanation</h2>
+<p>The authoritative reward is binary: one for an accepted complete result, zero otherwise. Formatting progress, partial pair lists, or reaching the compiler do not receive positive reward. Diagnostic metrics carry that information with zero weight.</p>
 <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable data table"><table>
 <thead>
 <tr class="header">
@@ -169,169 +155,50 @@
 <tbody>
 <tr class="odd">
 <td><code>checked_success</code></td>
-<td>Lean accepted the complete encoded result</td>
+<td>The encoded check completed and accepted</td>
 </tr>
 <tr class="even">
 <td><code>mathematical_rejection</code></td>
-<td>A well-formed candidate reached the checker and failed the specification</td>
+<td>A well-formed candidate failed the encoded check</td>
 </tr>
 <tr class="odd">
 <td><code>invalid_input</code></td>
-<td>Extraction, JSON, schema, or candidate validation failed</td>
+<td>Extraction or candidate validation failed</td>
 </tr>
 <tr class="even">
 <td><code>unsupported_task</code></td>
-<td>The requested family lies outside the implemented contract</td>
+<td>Outside the implemented contract</td>
 </tr>
 <tr class="odd">
 <td><code>operational_error</code></td>
-<td>Isolation, toolchain, timeout, or checker infrastructure failed</td>
+<td>Toolchain, isolation, timeout, or process failure</td>
 </tr>
 </tbody>
 </table></div>
-<p>In the environment, parse failures stop before a checker invocation. A false candidate reaches <code>specification_check</code>. A timeout receives a timeout stage and operational status. A missing or broken backend receives an internal stage and operational status. All are zero reward, but their meanings remain available in trace metadata.</p>
-<p>This separation matters when interpreting training. A rising invalid-input rate may indicate formatting collapse. A rising operational-error rate may mean a worker image changed. A stable mathematical-rejection rate with more candidates reaching Lean tells a different story from either. One scalar alone cannot support those diagnoses.</p>
-<h2 id="avoiding-duplicate-verification-under-concurrency">Avoiding duplicate verification under concurrency</h2>
-<p>Native compilation is expensive enough that accidental duplication matters. Verifiers can request the main reward and zero-weight metrics concurrently for the same trace. MathCheck RL uses two layers of reuse.</p>
-<p>In the compatibility adapter, the rollout's mutable state stores the in-flight task and then the completed verdict. Every rubric function awaits the same shielded task.</p>
-<p>In the Verifiers v1 path, an event-loop-local <code>AsyncSingleFlight</code> cache uses a SHA-256 key over the exact response, specification, Lean path, and timeout. The first caller creates the verification task. Concurrent callers with the same key await it. Completed values are retained in a bounded least-recently-used map; changed input or configuration creates a different key.</p>
-<p><code>asyncio.shield</code> prevents one cancelled consumer from cancelling work still needed by another. Failed tasks are removed rather than cached as successful results. Tests gather concurrent reward and metric requests and assert that the verification factory runs once.</p>
-<p>This is a small engineering feature with a large experimental payoff: every metric for one exact input refers to the same immutable verdict.</p>
-<h2 id="why-partial-credit-is-postponed">Why partial credit is postponed</h2>
-<p>Sparse rewards are difficult for reinforcement learning, so it is natural to ask why the environment does not award points for valid JSON, a plausible count, or some correct pairs.</p>
-<p>The answer is not that shaping is always wrong. It is that every shaping term defines an additional task. A formatting reward can teach the schema. A feasibility reward can teach the model to find witnesses. A distance-to-answer reward can leak a hidden candidate. A “fraction of correct pairs” reward may encourage short high-precision lists when the actual task requires exhaustive recall. Mixing these terms into one number makes it harder to know what behavior improved.</p>
-<p>MathCheck RL therefore starts with a binary authoritative objective and logs stage rank and verification duration separately. A future curriculum can use those diagnostics deliberately—for example, a formatting phase followed by a complete-certificate phase—but it should preregister the reward change and evaluate the final contract independently. The current environment supplies the measurements needed for that work without quietly claiming that intermediate progress is mathematical success.</p>
-<h2 id="why-the-old-sequence-environment-remains-in-the-repository">Why the old sequence environment remains in the repository</h2>
-<p>MathCheck RL began with a different task shape. The historical <code>native_verify_seq</code> adapter asks a model to write a restricted pure Lean definition <code>f : Nat -&gt; Nat</code>, then checks it against environment-held training and holdout observations.</p>
-<p>That environment is still useful as an experimental baseline. It exercises program synthesis, sanitizer boundaries, Lean compilation, and finite hidden tests. It also produced an early end-to-end GRPO smoke run.</p>
-<p>Its logical contract is weaker than the primary specification environment:</p>
-<div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable data table"><table>
-<thead>
-<tr class="header">
-<th>Environment contract</th>
-<th>What acceptance establishes</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>Finite-observation sequence checking</td>
-<td>The submitted program agrees on every checked index</td>
-</tr>
-<tr class="even">
-<td>Bounded specification checking</td>
-<td>The submitted result satisfies the complete encoded finite computation or relation</td>
-</tr>
-</tbody>
-</table></div>
-<p>If a prompt says “for any <code>n</code>” while the reward tests only a fixed range, a program that changes behavior immediately after the last hidden index can pass. That is not a verifier bug if the contract is honestly described as finite observation agreement; it is a claim bug if the result is presented as a universal theorem.</p>
-<p>The sequence adapter therefore remains available under its historical package name, but it is not the environment published on Prime Hub and it is not a third public project. The public project is MathCheck RL; the primary Hub environment is <code>mathcheck-rl</code>.</p>
-<h2 id="what-the-historical-training-run-actually-showed">What the historical training run actually showed</h2>
-<p>A preserved August 2026 run used the sequence baseline with a Qwen2.5-1.5B-Instruct model, LoRA, GRPO, and a single colocated RTX 2000 Ada. Twenty-four trainer steps completed. Rollouts reached Lean, binary rewards reached the trainer, policy updates and weight synchronization occurred, and a checkpoint was written.</p>
-<p>That is useful operational evidence: the broad loop once executed end to end. It is not evidence that training improved mathematical performance. The run was short, family difficulty was imbalanced, reward varied sharply with batch composition, some preserved logs contain empty or cancelled work, and no controlled pre/post evaluation establishes a gain. The active documentation retains that distinction, while old pod scripts and patches live in an archive so they cannot be mistaken for the current interface.</p>
-<p>This article makes no RL improvement claim. The separate solver project and its long-running benchmark are also outside this result.</p>
-<h2 id="how-mathcheck-rl-fits-verifiers-v1">How MathCheck RL fits Verifiers v1</h2>
-<p>The Hub module supports the current Verifiers v1 taskset interface while retaining a compatibility loader for earlier workflows.</p>
-<p>In v1, task data contains the prompt, an identifier, resource hints, and the frozen specification. Task configuration contains the isolated Lean launcher and verification timeout. A <code>Task</code> owns reward functions and writes diagnostic fields into trace metadata. A <code>Taskset</code> deterministically yields the configured families and number of tasks.</p>
-<p>The main reward decorator has weight 1.0. The stage-rank decorator has weight 0.0. Task resources currently request two CPU units and 2 GB of memory. The task declares <code>NEEDS_CONTAINER = False</code> because it invokes the separately configured isolation wrapper in the environment process; that is an execution detail, not a statement that untrusted checking needs no sandbox.</p>
-<p>The compatibility <code>load_environment</code> path builds training and evaluation datasets and a single-turn rubric. Both interfaces ultimately call the same <code>verify_specification_submission</code> function and preserve the same candidate contract.</p>
-<h2 id="publishing-on-prime-hub">Publishing on Prime Hub</h2>
-<p>The primary environment is public at <a href="https://app.primeintellect.ai/dashboard/environments/stanley-ngugi/mathcheck-rl">https://app.primeintellect.ai/dashboard/environments/stanley-ngugi/mathcheck-rl</a>. Version 0.1.1 is classified as Verifiers v1. The recommended installation path is the Prime CLI:</p>
-<pre class="bash"><code>curl -LsSf https://astral.sh/uv/install.sh | sh
-uv tool install -U prime
-prime login
-prime env install stanley-ngugi/mathcheck-rl@0.1.1</code></pre>
-<p>The Hub wheel declares Verifiers 0.3.0, Datasets 3–4, and immutable PEP 508 Git dependencies on the exact public Engine and RL core commits. This is important because ordinary wheel metadata must carry direct URL requirements; <code>[tool.uv.sources]</code> would not travel with the built artifact.</p>
-<p>Prime's installer reads those requirements and passes the immutable URLs to the package manager. A raw <code>uv pip install</code> against only the extra index may reject transitive URL dependencies under uv's security rules, so the documented and tested route is <code>prime env install</code>.</p>
-<p>The Prime CLI built and uploaded <code>mathcheck_rl-0.1.1-py3-none-any.whl</code> with SHA-256 <code>ed6e997980a3c532c0282f80a99513fe8c9e976a54fa9b2577bcc17b90df754d</code>. The independently reproducible local fixed-epoch build has a different byte hash because the Prime publication build did not use the repository release gate's fixed source-date epoch. Both facts are recorded instead of pretending the artifacts are byte-identical.</p>
-<h2 id="what-has-been-validated">What has been validated</h2>
-<p>The 0.2.1 source suite passed 113 tests, with two platform-specific tests intentionally skipped in that run. The tests cover, among other things:</p>
-<ul>
-<li>correct, adjacent-wrong, nonminimal, and incomplete-certificate controls;</li>
-<li>strict fenced JSON, duplicate keys, malformed pairs, bounds, and pseudo-integer rejection;</li>
-<li>multiple deterministic seeds and digest-disjoint splits;</li>
-<li>missing-isolation and checker-failure classification;</li>
-<li>exact-input concurrent cache reuse and cancellation behavior;</li>
-<li>v0 compatibility and v1 taskset adapters;</li>
-<li>durable batch-record and offline pilot-manifest behavior;</li>
-<li>package metadata and exact dependency versions.</li>
-</ul>
-<p>The complete release gate ran twice from clean temporary environments. Both runs produced byte-identical local wheels, passed dependency checks, imported from installed packages rather than source trees, loaded both environment adapters, confirmed the primary task row stored no expected candidate, and used isolated Lean to accept a known-correct result and reject a known-wrong result.</p>
-<p>A separate consumer environment then installed the exact public Hub version. It resolved MathCheck Engine 0.3.2 from commit <code>742edec6bdb4f7057780fc54e98fb284b76eedcf</code>, RL core 0.2.1 from commit <code>d4912c30564e99a3200f77ca7e94a8a3ebe184c7</code>, MathCheck RL 0.1.1, and Verifiers 0.3.0. The module imported from the new environment's <code>site-packages</code>. Verifiers' local setup validator then loaded one Hub task under the subprocess runtime and recorded one valid result with no errors or timeouts.</p>
-<p>Hub distribution and hosted execution are related but different claims. An authenticated Prime inference attempt stopped before any rollout because the account had insufficient balance. No hosted model result or hosted Lean check was produced. The project therefore does not claim a demonstrated Prime-hosted rollout or one-click hosted training.</p>
-<p>The current native reward requires Linux, <code>lean-isolated</code>, a standalone Lean 4.23.0 distribution, bubblewrap, and compatible namespace support. A future hosted demonstration needs a runtime image or substrate with those capabilities, then one known-valid and one known-invalid end-to-end check. We chose to state that boundary rather than borrow quota from an unrelated active benchmark.</p>
-<h2 id="reproducing-the-local-environment-path">Reproducing the local environment path</h2>
-<p>MathCheck RL 0.2.1 and Hub 0.1.1 support Python 3.11 through 3.13. Install the published environment with the Prime CLI, then configure the native checker:</p>
-<pre class="bash"><code>prime env install stanley-ngugi/mathcheck-rl@0.1.1
-
-export NATIVE_VERIFY_LEAN=/absolute/path/to/venv/bin/lean-isolated
-export LKV_SANDBOX_TOOLCHAIN=/absolute/path/to/lean-4.23.0-linux
-
-lean-isolated --version</code></pre>
-<p>A local, no-model v1 setup check is:</p>
-<pre class="bash"><code>validate mathcheck-rl \
-  --only-setup True \
-  --runtime.type subprocess \
-  --num-tasks 1 \
-  --rich False</code></pre>
-<p>For source development and the complete test suite:</p>
-<pre class="bash"><code>git clone https://github.com/stanleyngugi/mathcheck-engine.git
-git clone https://github.com/stanleyngugi/mathcheck-rl.git
-
-cd mathcheck-engine
-git checkout v0.3.2
-
-cd ../mathcheck-rl
-git checkout v0.2.1
-python3.12 -m venv .venv
-. .venv/bin/activate
-python -m pip install -e ../mathcheck-engine -e &#39;.[dev]&#39;
-
-export NATIVE_VERIFY_LEAN=&quot;$PWD/.venv/bin/lean-isolated&quot;
-export LKV_SANDBOX_TOOLCHAIN=/absolute/path/to/lean-4.23.0-linux
-python -m pytest tests -q</code></pre>
-<p>The release manifest and exact wheel hashes are published with the GitHub release. A missing Lean configuration may cause live tests to skip; such a run must not be reported as full native verification evidence.</p>
-<p>The frozen release and Hub evidence—including the exact consumer-install resolution and hosted boundary—is collected in <a href="https://github.com/stanleyngugi/mathcheck-rl/blob/main/docs/RELEASE_EVIDENCE_0.2.1.md"><code>docs/RELEASE_EVIDENCE_0.2.1.md</code></a>. The public GitHub release is at <a href="https://github.com/stanleyngugi/mathcheck-rl/releases/tag/v0.2.1">https://github.com/stanleyngugi/mathcheck-rl/releases/tag/v0.2.1</a>.</p>
-<h2 id="what-we-can-claimand-what-we-cannot">What we can claim—and what we cannot</h2>
-<p>The evidence supports these claims:</p>
-<ul>
-<li>primary tasks contain complete bounded specifications and no stored expected candidate;</li>
-<li>prompt and checker derive from the same frozen specification object;</li>
-<li>exact specification digests separate generated training and evaluation rows;</li>
-<li>strict submission schemas prevent the model from replacing the contract;</li>
-<li>current scalar families check complete bounded computations;</li>
-<li>pair certificates check the complete bounded relation and cardinality;</li>
-<li>Lean-backed execution is pinned, isolated, fail-closed, and explicitly classified;</li>
-<li>Verifiers v1 packaging is public and consumer installation has been tested.</li>
-</ul>
-<p>It does not support these larger claims:</p>
-<ul>
-<li>arbitrary natural-language mathematics is automatically formalized;</li>
-<li>every algebra, combinatorics, number-theory, or geometry problem fits the current contracts;</li>
-<li>a successful bounded check proves anything outside its declared domain;</li>
-<li>native execution trusts only Lean's kernel;</li>
-<li>the wrapper is an audited production multi-tenant sandbox;</li>
-<li>the environment has demonstrated a Prime-hosted rollout;</li>
-<li>RL training has improved a model over a controlled baseline;</li>
-<li>results from the independent solver benchmark belong to this project.</li>
-</ul>
-<p>This is not cautious wording pasted onto an otherwise universal claim. The boundaries are part of the design. A verifier is most useful when a reader can say exactly what its green result means and exactly what it leaves open.</p>
-<h2 id="where-the-project-can-go-next">Where the project can go next</h2>
-<p>The next expansion should add mathematical contracts, not merely more prompt templates. High-value candidates include number-theory primitives, exact rationals, bounded tuples and sets, optimization with explicit tie policies, permutations and graph certificates, dynamic-programming tables, exact polynomial identities, finite linear algebra, and eventually exact coordinate geometry.</p>
-<p>On the RL side, the next empirical step should be a small preregistered pilot, not an open-ended multi-day run. The repository already records frozen split commitments, call, cost, retry, and time limits, operational-error thresholds, and equal pre/post evaluation. That pilot remains unexecuted while the separate solver benchmark is active and until provider, model, runtime, and quota choices are explicitly filled in.</p>
-<p>There is also practical systems work: a pinned hosted runtime image, reward-cost profiling, aggregate sandbox limits, family-balanced sampling, difficulty curricula, and preserved per-rollout diagnostics. None of those needs to be pretended complete for the environment to be useful today.</p>
-<p>When an empirical pilot becomes appropriate, its design should make a modest question answerable. Use a frozen training split, one primary evaluation split, and a confirmatory split whose results remain unopened until the first analysis is final. Run the same primary tasks once before and after training with the same decoding settings. Preserve invalid-input and operational-error rates next to mathematical pass rate. Cap calls, spend, retries, and wall time in advance. Stop if the checker is unhealthy or the gain is absent.</p>
-<p>The repository's prepared protocol follows that shape: 40 training tasks, 80 primary evaluation tasks, 80 confirmatory tasks, pairwise digest-disjoint commitments, a 300-call ceiling, a USD 20 ceiling, and a 60-minute ceiling. Its provider, model, runtime, decoding, commits, and benchmark-completion reference remain intentionally unset. A manifest generator can validate those fields offline, but it cannot authorize the experiment. This is the right distinction between being ready to measure and already having measured.</p>
-<h2 id="a-better-unit-of-trust">A better unit of trust</h2>
-<p>The most interesting part of MathCheck RL is not that Lean produces a binary reward. It is the decision to make the environment's mathematical contract a first-class artifact.</p>
-<p>An answer key is compact, but it erases the path from problem to judgment. A complete specification keeps the rule available for inspection, generation, checking, hashing, and adversarial testing. It lets the model output an ordinary mathematical object instead of a formal proof while still giving the reward system something more meaningful than string equality.</p>
-<p>This approach will not cover all mathematics, and it should not try to do so through vague generality. Its promise is cumulative: add one well-scoped contract at a time, state what completeness means for that contract, and retain the operational evidence needed to interpret every zero and one.</p>
-<p>Training on specifications instead of hidden answers does not remove trust. It puts trust in a place we can see, test, version, and argue about.</p>
-<p>MathCheck RL is public under the MIT license at <a href="https://github.com/stanleyngugi/mathcheck-rl">https://github.com/stanleyngugi/mathcheck-rl</a>. The primary environment is available on Prime Hub at <a href="https://app.primeintellect.ai/dashboard/environments/stanley-ngugi/mathcheck-rl">https://app.primeintellect.ai/dashboard/environments/stanley-ngugi/mathcheck-rl</a>.</p>
+<p>A missing compiler and an incorrect answer both receive zero during scoring, but treating them as the same evaluation label makes an unhealthy worker look like a weaker policy. Traces preserve status, stage, reason, timing, backend, scope, specification and submission digests, invocation count, and diagnostic messages. Operational failures remain visible in aggregate reports.</p>
+<p>The native path requires an explicitly configured <code>lean-isolated</code> launcher and Lean 4.23.0. It fails closed when required isolation is unavailable. It does not silently substitute a host compiler. The wrapper limits individual process resources; production service isolation and aggregate resource limits would require further work.</p>
+<p>Reward and metrics may be requested concurrently. They share one verification result rather than compiling the same rollout twice. The v1 adapter uses an event-loop-local single-flight cache keyed by exact input and runtime settings; consumer cancellation does not cancel verification needed by other consumers. Operational errors can be shared while in flight but are not retained as completed cached verdicts, so a repaired backend can be tried again.</p>
+<p>Process classification also has a limit: exit code 1 from the checker can represent a Lean rejection or an otherwise unidentified failure. Timeouts, wrapper failure codes, signals, and launch errors are explicitly operational. Distinguishing every possible exit-1 infrastructure failure needs stronger structured evidence from the checker process.</p>
+<h2 id="where-specifications-could-come-from">Where specifications could come from</h2>
+<p>Procedural generation makes the initial fidelity problem manageable: the specification comes first, and prose is rendered from it. An existing natural-language dataset introduces another task: formalizing the question. Dropping the answer column alone does not create a checker.</p>
+<p>Each problem needs its own semantic instance, but it need not need a new handwritten verifier. A reusable family can take parameters; a compositional expression language can represent many instances; existing formal statements can provide contracts. The present bounded DSL covers only a selected subset of public math questions. Rational or real answers, geometry, symbolic answer sets, and unbounded claims need additional contracts. Adding an arbitrary finite search limit would change an unbounded problem rather than formalize it.</p>
+<p>A future model-assisted pipeline could construct specifications from questions in a separate context, blind to reference solutions and solver candidates. A second reviewer could check quantities, units, domains, quantifiers, and the objective; type checks and boundary mutations could reject malformed or suspicious specifications. Only then would the environment freeze the contract before the solving policy receives the task.</p>
+<p>Different models or contexts can reduce direct leakage, but they do not establish independent errors. Two formalizers can omit the same condition. Compilation and provability cannot establish fidelity: a perfectly valid theorem can express the wrong problem. Research such as <a href="https://arxiv.org/abs/2606.31002">Beyond Compilation</a> treats faithful statement formalization as a separate evaluation target.</p>
+<p><a href="https://arxiv.org/abs/2410.20936">Symbolic equivalence and semantic consistency</a> are useful validation ideas, with limits. For answer-finding, compare the acceptance relations over all admissible candidates, not merely whether two closed claims are provable. Backtranslation, independent review, and human calibration can catch errors that formal equivalence between two identically mistaken specifications preserves. Report specification coverage and estimated fidelity separately from solver success on accepted specifications.</p>
+<p>An <a href="https://github.com/stanleyngugi/mathcheck-rl/blob/main/docs/GSM8K_DEMONSTRATION.md">offline GSM8K demonstration</a> now accepts question-only inputs and reviewed specifications, after the procedural foundation. It includes four development tasks and one public test example; its current review comes from the same assistant that constructed the specs, so independent fidelity review remains outstanding. It has no native or learning result. The known public test example illustrates the interface. The official test split must remain evaluation-only if we want a held-out measurement; public availability still leaves pretraining contamination open. Questions from training can supply a separate development slice. Dataset solutions can be consulted afterward for QA, but that must be disclosed and kept separate from answer-blind construction and reward-time checking.</p>
+<h2 id="what-the-evidence-supports-and-what-comes-next">What the evidence supports, and what comes next</h2>
+<p>The published RL 0.2.1 / Hub 0.1.1 release has preserved source tests, repeatable wheel builds, installed-package checks, and isolated Lean positive and negative controls. Exact artifacts and runtime boundaries are recorded in <a href="https://github.com/stanleyngugi/mathcheck-rl/blob/main/docs/RELEASE_EVIDENCE_0.2.1.md">the release evidence</a>. A later source revision needs its own live checks and release gate; passing tests with live integrations skipped is not equivalent evidence.</p>
+<p>A historical sequence-program run completed training steps and wrote a checkpoint. It establishes that an earlier loop executed, not that the current specification environment improves mathematical performance. The legacy <code>native-verify-seq</code> adapter checks agreement with finite observations; it does not prove a sequence rule for every natural number. Its evidence is kept separate from the primary environment.</p>
+<p>The primary environment is distributed on <a href="https://app.primeintellect.ai/dashboard/environments/stanley-ngugi/mathcheck-rl">Prime Hub</a>. Consumer installation and local setup were tested for the published version. An authenticated hosted inference attempt stopped before a rollout because of insufficient balance. Hosted model execution and learning gains remain unestablished. <a href="https://github.com/stanleyngugi/mathcheck-rl/blob/main/docs/REPRODUCIBILITY.md">Reproducibility notes</a> retain the installation details and historical records without interrupting this argument.</p>
+<p>The next empirical question is modest: can optimizing this reward improve performance on different frozen instances of the implemented families? The <a href="https://github.com/stanleyngugi/mathcheck-rl/blob/main/docs/M5_PILOT_PROTOCOL.md">procedural pilot</a> defines paired pre/post evaluation, a separate confirmatory split, family-balanced training, explicit policy updates, and a feasible call allocation. Its revised protocol is a planning artifact, not a completed experiment. Exact model, trainer, checkpoint and runtime identities must be frozen, and native release checks and quota availability must be established before execution.</p>
+<p>The order matters: stabilize the current contract and instrument, check their behavior, measure a bounded procedural pilot, then demonstrate a reviewed dataset import. Larger autoformalization and richer mathematical contracts can follow evidence rather than stand in for it.</p>
+<p>MathCheck RL's useful claim is concrete: a model can submit ordinary answer data and receive a mechanically checked reward against a complete formalized contract, without a precomputed reference candidate. The difficult work moves into specifying the right contract and preserving the evidence needed to interpret each result. That is a tractable foundation for research, provided we measure both parts honestly.</p>
+<p>The code is public under the MIT license at <a href="https://github.com/stanleyngugi/mathcheck-rl">https://github.com/stanleyngugi/mathcheck-rl</a>. The companion <a href="https://stanleyngugi.netlify.app/posts/mathcheck-engine.html">Engine article</a> explains the generated checking artifacts in more detail.</p>
 
 <div class="cite-box"><div class="cite-label">Cite this post</div>
 <p><a href="/citations/mathcheck-rl.bib" download>Download BibTeX</a></p>
 <pre><code>@misc{ngugi2026mathcheckrl,
-  title = {How MathCheck RL Replaces Hidden Answer Keys with Lean-Checked Rewards},
+  title = {Grading Mathematical Answers Without Precomputed Answer Keys},
   author = {Ngugi, Stanley},
   year = {2026},
   month = {sep},

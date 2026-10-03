@@ -14,7 +14,7 @@
       <description>A code RL environment where models complete C functions under fixed specifications and earn reward from Frama-C proofs of functional correctness and runtime safety—not sampled tests.</description>
     </item>
     <item>
-      <title>How MathCheck RL Replaces Hidden Answer Keys with Lean-Checked Rewards</title>
+      <title>Grading Mathematical Answers Without Precomputed Answer Keys</title>
       <link>https://stanleyngugi.netlify.app/posts/mathcheck-rl.html</link>
       <guid isPermaLink="true">https://stanleyngugi.netlify.app/posts/mathcheck-rl.html</guid>
       <pubDate>Sat, 12 Sep 2026 00:00:00 +0000</pubDate>
