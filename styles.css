@@ -708,3 +708,10 @@ footer a:hover {
     gap: 1px;
   }
 }
+
+/* MathCheck article navigation; scoped to the research posts. */
+.mathcheck-article .article-contents { margin: 1.5rem 0 2rem; padding: 1rem; border: 1px solid var(--border); border-radius: 6px; }
+.mathcheck-article .article-contents summary { cursor: pointer; font-weight: 600; }
+.mathcheck-article .article-contents ul { margin-bottom: 0; }
+.mathcheck-article .table-wrap { overflow-x: auto; max-width: 100%; }
+.mathcheck-article pre { overflow-x: auto; }

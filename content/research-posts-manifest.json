@@ -1,0 +1,16 @@
+{
+  "mathcheck-rl.md": {
+    "source": "https://github.com/stanleyngugi/mathcheck-rl/blob/main/TECHNICAL_ARTICLE.md",
+    "sha256": "d6a648a3ba679b7ac829328edcbc8b769a4a199a3924c49ebbdb5ad6a6b56ed9",
+    "output": "posts/mathcheck-rl.html",
+    "title": "Grading Mathematical Answers Without Precomputed Answer Keys",
+    "reading_minutes": 12
+  },
+  "mathcheck-engine.md": {
+    "source": "https://github.com/stanleyngugi/mathcheck-engine/blob/main/TECHNICAL_ARTICLE.md",
+    "sha256": "3b496e72a4d82cbe1a2fb07cec3a758ca557a282e93eb4c50f32d3bf80ae1436",
+    "output": "posts/mathcheck-engine.html",
+    "title": "Building a Lean-Backed Verifier for Bounded Mathematical Answers",
+    "reading_minutes": 17
+  }
+}
