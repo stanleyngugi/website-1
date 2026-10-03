@@ -715,3 +715,8 @@ footer a:hover {
 .mathcheck-article .article-contents ul { margin-bottom: 0; }
 .mathcheck-article .table-wrap { overflow-x: auto; max-width: 100%; }
 .mathcheck-article pre { overflow-x: auto; }
+
+/* Native MathML keeps formulas readable without a script dependency. */
+.mathcheck-article .math-display { max-width: 100%; overflow-x: auto; padding: 0.5rem 0; margin-bottom: 20px; }
+.mathcheck-article .math-display math { display: block; width: max-content; margin: 0.5rem auto; }
+.mathcheck-article .article-header .entry-date { white-space: normal; }

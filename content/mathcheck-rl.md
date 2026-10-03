@@ -1,32 +1,52 @@
 # Grading Mathematical Answers Without Precomputed Answer Keys
 
-> MathCheck RL uses environment-owned specifications to turn bounded mathematical
-> answers into Lean-checked rewards. The model supplies an answer or a complete
-> finite certificate; trusted code constructs the formal checking obligation.
+> MathCheck RL turns frozen mathematical specifications into rewards for
+> bounded answers and complete finite certificates. The model supplies data;
+> trusted code constructs and executes the Lean checking obligation.
 
-A mathematical problem can be clear before its answer is known. We can specify
+A mathematical problem can be clear before its answer is known. We can state
 which integers are allowed, what condition they must satisfy, and what makes a
-solution the least one. Can that specification supply a reinforcement-learning
-reward without someone first computing and storing the correct answer?
+solution the least one. Can that statement supply a reward without someone
+first computing and storing the correct answer?
 
-For a restricted class of decidable problems, yes. MathCheck RL explores
-**formal verification of bounded mathematical submissions against frozen,
-environment-owned specifications, producing rewards without precomputed answer
-keys**. The specification carries the ground truth. The checker determines
-whether a proposed answer satisfies it.
+For a restricted class of decidable problems, yes. MathCheck RL explores that
+interface: **grade a candidate against an environment-owned specification,
+without a precomputed reference answer**. Its current implementation covers
+exact nonnegative integer answers for arithmetic evaluation, bounded sums,
+counts and minima, together with complete relations over bounded integer pairs.
 
-This motivation is different from fixing an exact-string grader. Tools such as
-[Math-Verify](https://github.com/huggingface/Math-Verify) already handle numeric
-and symbolic equivalence. Representations such as `33` and `33.00` can denote
-the same answer; nearby values require whatever exactness or tolerance the task
-actually specifies. A capable answer comparator is useful when a reference
-answer exists. This project asks how to build the reward from the problem's
-contract instead.
+In reinforcement learning with verifiable rewards (RLVR), a checker scores
+model outputs and those scores can guide policy updates. This project supplies
+the task and reward layer. Whether training on that reward improves a model is
+a separate empirical question; a training result is not required to demonstrate
+the checking contract.
 
-The present implementation is small: integer evaluation, bounded sums, counts,
-minima, and complete relations over bounded integer pairs. That narrow surface
-lets us inspect what a reward means before asking whether optimizing it helps
-a model learn.
+## What replaces the answer key?
+
+A reference-answer grader compares a candidate `a` with a stored answer
+`a*`. A specification grader asks whether `V(S, a)` holds, where `S` is
+the frozen problem specification and `V` implements its acceptance relation.
+For a minimum, that relation includes both feasibility and leastness. For a
+complete enumeration, it includes both validity and completeness.
+
+The specification supplies the rule for correctness. The checker still has to
+decide whether the candidate meets that rule. In the current bounded families,
+it can do this by computing the entire finite result. **Answer-key-free does
+not mean computation-free, supervision-free, or necessarily cheaper than
+solving the problem.** It means a reference candidate need not be prepared and
+stored before scoring.
+
+This motivation is different from repairing an exact-string grader.
+[Math-Verify](https://github.com/huggingface/Math-Verify), for example, handles
+numeric and symbolic equivalence against reference answers. `33` and
+`33.00` can denote the same value; accepting nearby values depends on the
+task's stated tolerance. A capable comparator is useful when a reference
+answer exists. MathCheck asks how to obtain the reward from the contract itself.
+
+A contract also costs work to construct. It must identify the right domain,
+quantities, conditions and objective. Removing a stored answer does not remove
+the need for trustworthy supervision; it moves that responsibility into the
+specification and its checker.
 
 ## Follow one problem from statement to reward
 
@@ -35,7 +55,8 @@ Consider this task:
 > Find the least integer x in the half-open interval [0, 30) such that
 > x leaves remainder 2 when divided by 3 and remainder 1 when divided by 5.
 
-The environment freezes the following object before the model responds:
+“Half-open” means 0 is included and 30 is excluded. Before the model responds,
+the environment freezes this specification:
 
 ```json
 {
@@ -46,9 +67,9 @@ The environment freezes the following object before the model responds:
 }
 ```
 
-There is no expected-answer field. The prompt renderer describes the same
-object in prose and adds the submission schema. The model must return exactly
-one fenced JSON object:
+There is no expected-answer field. The prompt renderer describes this object
+and adds the required submission format. The model returns one fenced JSON
+object:
 
 ````text
 ```json
@@ -56,8 +77,8 @@ one fenced JSON object:
 ```
 ````
 
-Let P(x) denote the two congruence conditions. The mathematical obligation for a
-candidate a is:
+Let P(x) denote the two remainder conditions. For a candidate a, the complete
+mathematical obligation is:
 
 ```text
 0 ≤ a < 30
@@ -65,18 +86,28 @@ and P(a)
 and, for every x in [0, 30), x < a implies not P(x).
 ```
 
-The final clause matters. Both 11 and 26 satisfy P; only 11 is the least
-solution in the interval. A checker that tests feasibility alone would reward
-26 for answering a different question.
+The last clause is essential. Both 11 and 26 satisfy P; only 11 is least.
+Checking P(26) alone would reward a feasible solution to a different question.
 
-MathCheck Engine translates the restricted expression into Lean integer
-arithmetic. Its trusted template defines a Boolean decision for the complete
-obligation, including an enumeration of all smaller values in the declared
-interval. A generated theorem is discharged with `native_decide`. The current
-implementation wraps this Boolean in its shared finite checker template; it
-does not ask the model to invent the statement or write the proof script.
+The responsibilities are divided as follows:
 
-| Submission | Meaning | Expected outcome on a healthy backend |
+1. **MathCheck RL** owns the frozen task, renders the prompt and parses the
+   candidate.
+2. **MathCheck Engine** translates the restricted expression into Lean integer
+   arithmetic and constructs the complete acceptance test.
+3. **The isolated Lean runtime** evaluates the generated obligation using
+   `native_decide`.
+4. **The reward adapter** maps the verdict to a binary score and preserves
+   diagnostic evidence.
+
+Internally, the Engine defines a Boolean acceptance test and embeds it in a
+shared finite checker template. The template compares a computed success
+marker with 1; computing that marker includes the entire acceptance test,
+rather than sampled checks of the domain. A theorem about this concrete
+computation is discharged by compiled decision. The model supplies neither
+the theorem statement nor a proof script.
+
+| Submission payload | Meaning | Expected outcome on a healthy backend |
 | --- | --- | --- |
 | `{"answer": 11}` | Feasible and least | `checked_success`, reward 1 |
 | `{"answer": 26}` | Feasible but not least | `mathematical_rejection`, reward 0 |
@@ -84,259 +115,365 @@ does not ask the model to invent the statement or write the proof script.
 | `{"answer": 41}` | Outside the interval | `mathematical_rejection`, reward 0 |
 | `{"answer": true}` | Violates the integer schema | `invalid_input`, reward 0 |
 
-The values in this walkthrough explain the controls. They are not stored as a
-reference answer in the task used for reward. The checker can compute the
-entire finite result internally: answer-key-free describes the supervision
-interface, not an algorithm that avoids solving the computation.
+Each payload must appear inside the required JSON fence. These values explain
+the acceptance rule; they are not stored as a reference answer in the task.
+Expected outcomes are also different from evidence that a particular runtime
+actually produced them.
 
-The same distinction appears in pair tasks. If the contract asks for every
-pair satisfying a relation, checking each submitted pair establishes validity
-but leaves completeness open. MathCheck's pair checker constructs the entire
-relation over the declared rectangle and checks equality with the sorted,
-duplicate-free submitted list, together with its claimed cardinality. Leaving
-out a valid pair fails the contract even if every listed pair is valid.
+The specification includes its bounds. Acceptance establishes leastness
+inside [0, 30); it does not automatically establish an unbounded claim.
 
-## What is frozen, and what the model controls
+## A valid witness is not a complete result
 
-The primary environment's unit of trust is a `SpecificationTask`: a prompt,
-family, identifier, and immutable specification. Today a deterministic
-procedural generator supplies count, sum, minimum, and pair-count tasks. The
-prompt and checker input derive from that same object. Exact evaluation is
-supported by the Engine and by directly constructed tasks.
+The same issue appears when a problem asks for every pair satisfying a
+relation. Consider integer pairs in [0, 5) × [0, 5), subject to:
 
-The model controls only its candidate or certificate. It cannot submit a new
-predicate, change the bounds, or add a convenient Lean theorem. A strict parser
-requires one JSON fence and no surrounding commentary. Duplicate JSON keys,
-extra fields, booleans used as integers, oversized inputs, and malformed pairs
-are rejected. Pair lists must satisfy the canonical ordering and uniqueness
-rules before checking.
+```text
+x < y and x + y = 4.
+```
 
-This is an intentionally exact submission language. Rejecting `33.00` as a
-JSON floating-point value here would be a schema decision, not evidence that
-modern mathematical graders cannot recognize equivalent numbers. A richer
-contract could admit other representations; it would need explicit parsing
-and semantics.
+The satisfying relation is `[(0, 4), (1, 3)]`. A complete submission is:
 
-The compatibility Verifiers API has a private column named `answer`. This
-project uses it to carry serialized specification data, because the rubric
-receives that column. It contains no expected candidate and is not rendered
-into the prompt. Rows mark `contains_expected_answer: false` to make this
-unusual interface inspectable.
+```json
+{"answer": 2, "pairs": [[0, 4], [1, 3]]}
+```
 
-Specification digests identify the exact encoded task. Generated train and
-evaluation sets remove duplicates and exclude shared digests. This establishes
-exact specification separation. It does not establish that different modular
-problems require different strategies, that a public task was absent from
-pretraining, or that a model generalizes beyond these families.
+Submitting only `[[0, 4]]` gives a valid witness, but omits another required
+pair. Even a claimed count of 1 agrees with that incomplete list without
+answering the original question.
+
+MathCheck constructs the entire satisfying relation over the frozen rectangle,
+checks exact equality with the submitted list, and checks its claimed
+cardinality. Pairs must be sorted lexicographically and contain no duplicates.
+This is a **complete finite certificate**: all required pairs within the
+declared domain are present.
+
+Here “certificate” does not imply a compact proof or a cheaper verification
+algorithm. The checker recomputes the relation, and the certificate can grow
+with its size. The benefit of this interface is an explicit completeness
+obligation. It makes no statement about pairs outside the rectangle.
+
+## The implemented contract
+
+The current surface is deliberately small enough to inspect.
+
+| Task | Model supplies | Acceptance requires |
+| --- | --- | --- |
+| Exact evaluation | Nonnegative integer | Equality with the encoded arithmetic expression |
+| Bounded sum | Nonnegative integer | Equality with the sum over every declared index |
+| Bounded count | Nonnegative integer | Equality with the number of satisfying indices |
+| Bounded minimum | Nonnegative integer | Domain membership, predicate satisfaction and no smaller satisfying index |
+| Bounded pair relation | Count and complete pair list | Exact relation equality and matching cardinality |
+
+The expression language looks like Python arithmetic, but it is a restricted
+language parsed and translated by trusted code, not arbitrary Python executed
+with `eval`. It supports integer arithmetic, limited literal powers,
+comparisons and Boolean operations. Division and modulo require a positive
+literal divisor. `//` denotes integer floor division; rational division and
+implicit rounding conventions are not part of the contract.
+
+Indices and pair coordinates are nonnegative. Expressions can have negative
+intermediate values, but the scalar submission schema admits only nonnegative
+integers smaller than `10**1000`. A problem with a negative final result
+therefore needs a different submission contract. Scalar search intervals
+contain at most 10,000 indices; pair rectangles contain at most 10,000 points.
+Expression-size limits and process resource limits further bound the workload.
+
+A minimum task also needs a satisfying value if it is to have an accepted
+integer answer. The procedural generator constructs satisfiable instances.
+The current schema has no “no solution” certificate; an arbitrary predicate
+with no solution cannot be answered successfully just by submitting an integer.
+
+This scope excludes arbitrary real or rational answers, geometry, symbolic
+solution sets and unbounded claims. A finite search limit is faithful only
+when it is part of the problem or otherwise justified. Adding one to an
+unbounded question changes the question.
+
+The primary environment's task object, `SpecificationTask`, binds an
+identifier, family, prompt and immutable specification. Its default generator
+produces count, sum, minimum and pair tasks. Exact evaluation is supported by
+the Engine and by directly constructed tasks, including the small dataset
+demonstration.
+
+The model controls only its answer data. It cannot replace the predicate,
+change the bounds or submit a convenient theorem. Parsing requires exactly
+one JSON fence with no surrounding commentary. Duplicate keys, extra fields,
+booleans used as integers, malformed pairs and oversized inputs fail before
+native checking.
+
+Rejecting `33.00` as a JSON floating-point value here is a choice of submission
+schema. It is not evidence that modern graders cannot recognize equivalent
+numbers. Other representations would need explicit parsing and semantics.
+
+The compatibility Verifiers API has a column named `answer`; MathCheck uses
+it to carry serialized specifications because the rubric receives that column.
+It stores no expected candidate, is not rendered into the prompt, and is
+marked `contains_expected_answer: false`. The field name should not be
+mistaken for an answer key.
 
 ## Why Lean if Python can evaluate the specification?
 
-Python can implement every current check. It can enumerate an interval,
-compute a sum, reject a nonminimal solution, or compare complete pair lists.
-Exhaustive coverage comes from the contract and its implementation. Lean is
-not necessary to remove an answer key.
+Python can implement every current check, including exhaustive enumeration,
+leastness and complete-list equality. A carefully tested Python implementation
+is a legitimate baseline. Removing an answer key does not require Lean.
 
-The reason to explore Lean is the assurance architecture. The checking
-obligation has a typed formal representation, its definitions and bounds are
-visible in a generated artifact, and its discharge takes place within Lean's
-proof infrastructure. These are useful foundations for connecting future
-certificate checks to formal mathematical definitions. They do not establish
-that Lean is faster, cheaper, or more reliable than an independently tested
-Python implementation of these small computations.
+The reason to explore Lean is the assurance architecture: a typed formal
+representation of the obligation, inspectable definitions and bounds, and a
+formal claim discharged within Lean's proof infrastructure. That is a basis
+for connecting future certificate checks to mathematical definitions. It does
+not establish a speed, cost or reliability advantage for these small tasks.
 
-The analogy with code verification helps locate the claim. A program can be
-checked against a specification using tests, an executable interpreter, an SMT
-encoding, or a proof assistant. Which approach is appropriate depends on the
-semantic connection to the program, the proposition established, and the
-trusted machinery. Python can itself host a solver or proof checker. The
-choice is about how evidence is produced and checked, rather than the surface
-language alone.
+The analogy with code verification is useful. Tests, an executable semantic
+model, an SMT solver and a proof assistant provide different ways to establish
+a property. The important questions are what property is established, how the
+encoding connects to the intended program or problem, and which machinery
+must be trusted. Python can host a solver or proof checker too; the surface
+language alone does not determine the strength of the evidence.
 
-MathCheck uses compiled decision procedures. In the pinned
-[Lean 4.23.0 reference](https://lean-lang.org/doc/reference/4.23.0/Tactic-Proofs/Tactic-Reference/#native_decide),
-`native_decide` evaluates a decidable proposition through native compilation
-and relies on `Lean.ofReduceBool`. This expands the trusted base to include
-Lean's compiler and native execution. The result is a formal claim discharged
-by compiled computation, with that trust assumption; it is not kernel-only
-reduction.
+In the present implementation, the Engine constructs the formal acceptance
+test and `native_decide` executes a decision procedure for it. The pinned
+[Lean 4.23.0 reference](https://lean-lang.org/doc/reference/4.23.0/Tactic-Proofs/Tactic-Reference/#native_decide)
+explains that native evaluation relies on `Lean.ofReduceBool`. This adds
+the Lean compiler and native execution to the trusted base. The resulting
+theorem is therefore not established by kernel-only reduction.
 
-There are further trusted boundaries. Python parses and translates the
-restricted expression language, and a template constructs the obligation.
-This translator is tested, but it is not a formally verified compiler. The
-specification author remains responsible for the intended mathematics. A
-successful Lean check establishes the generated encoded claim under the
-pipeline's assumptions; it does not establish that an arbitrary prose question
-was faithfully translated.
+Other trusted components remain:
 
-An independent Python evaluator is therefore useful as a differential control.
-Agreement on valid and deliberately invalid candidates, negative intermediate
-values, division semantics, boundaries, leastness, and completeness can expose
-implementation mistakes. Timing both backends can measure the cost of the
-chosen architecture. Agreement is evidence, not a proof that both
+- **The specification author** chooses the intended domain and mathematical
+  meaning.
+- **The Python translator and source template** turn that specification and
+  candidate into the Lean checking artifact.
+- **The runner and reward adapter** execute the checker and interpret its
+  outcome.
+
+The translator is tested, but it is not a formally verified compiler. A
+successful check establishes the generated encoded claim under these
+assumptions. It does not establish that an arbitrary prose question was
+faithfully translated.
+
+An independent Python evaluator is useful precisely because it exercises
+another implementation of the contract. Differential controls compare valid
+and deliberately invalid candidates, boundary values, negative intermediate
+arithmetic, division, leastness and completeness. Agreement can expose bugs
+and timing can reveal overhead. Agreement is evidence, not a proof that both
 implementations are correct.
 
-## How this differs from theorem-proving RL
+## How this relates to theorem-proving RL
 
-In a theorem-proving environment, the target statement is usually fixed and
-the model supplies a proof. A reference proof is unnecessary because the
-proof checker can validate another proof of that statement. MathCheck follows
-the same contract-first principle while asking for a different artifact: an
-answer or finite certificate.
+In a typical theorem-proving environment, the statement is fixed and the model
+supplies a proof. A reference proof is unnecessary: the proof checker can
+validate a different proof of the same statement.
 
-The environment does generate and discharge a formal claim. Saying that it
-performs no proving would obscure that fact. The narrower distinction is that
-the policy does not synthesize Lean proofs. Trusted code instantiates the
-frozen acceptance relation with the candidate and uses a decision procedure.
+MathCheck follows the same contract-first principle, while asking the policy
+for an answer or a complete finite certificate. Trusted code instantiates
+the acceptance relation with that submission and discharges the resulting
+claim by a decision procedure. Formal proving occurs in the pipeline; the
+policy does not synthesize Lean proofs.
 
-Answer-finding also complicates comparisons with proof-synthesis systems. The
+Answer-finding needs care in this comparison. A statement that 11 satisfies
+a predicate is weaker than a statement that 11 is the least solution. The
 [AlphaProof paper](https://www.nature.com/articles/s41586-025-09833-y)
-describes injecting plausible answers when formalizing some answer-finding
-problems. A fixed theorem and a fixed relation over possible answers are
-related interfaces, but they are not interchangeable.
+also describes gathering plausible answers for some answer-finding problems
+and injecting them during formalization. A fixed theorem and a fixed relation
+over candidate answers are related interfaces, but their obligations must be
+spelled out.
 
-Learning without answer labels is an existing research direction.
+Label-free mathematical RL is already a research direction.
 [JURY-RL](https://arxiv.org/abs/2604.25419), a 2026 preprint, combines
-rollout-derived answer proposals with a Lean proof pipeline and a fallback
-when verification is inconclusive. MathCheck's current contribution is a
-smaller engineering experiment: restricted, independently specified decidable
-contracts connected to auditable reward verdicts. It does not claim to have
-introduced label-free mathematical RL.
+rollout-derived answer proposals with formal verification and a fallback
+reward when verification is inconclusive. MathCheck's present contribution
+is a smaller engineering demonstration: bounded, environment-owned contracts
+connected to explicit reward verdicts. It does not claim to have introduced
+learning without answer labels.
 
 ## A zero reward needs an explanation
 
-The authoritative reward is binary: one for an accepted complete result, zero
-otherwise. Formatting progress, partial pair lists, or reaching the compiler do
-not receive positive reward. Diagnostic metrics carry that information with
-zero weight.
+The authoritative reward is 1 for an accepted complete result and 0 otherwise.
+Partial pair lists, formatting progress and reaching the compiler receive no
+positive reward. Diagnostic metrics have zero weight.
 
 | Status | Interpretation |
 | --- | --- |
 | `checked_success` | The encoded check completed and accepted |
-| `mathematical_rejection` | A well-formed candidate failed the encoded check |
+| `mathematical_rejection` | The checker reported rejection of a well-formed candidate |
 | `invalid_input` | Extraction or candidate validation failed |
-| `unsupported_task` | Outside the implemented contract |
-| `operational_error` | Toolchain, isolation, timeout, or process failure |
+| `unsupported_task` | The request is outside the implemented contract |
+| `operational_error` | Toolchain, isolation, timeout or process failure |
 
-A missing compiler and an incorrect answer both receive zero during scoring,
-but treating them as the same evaluation label makes an unhealthy worker look
-like a weaker policy. Traces preserve status, stage, reason, timing, backend,
-scope, specification and submission digests, invocation count, and diagnostic
-messages. Operational failures remain visible in aggregate reports.
+This is the vocabulary of the verdict layer; individual entry points may
+reject unsupported specifications during construction instead of scoring them.
 
-The native path requires an explicitly configured `lean-isolated` launcher and
-Lean 4.23.0. It fails closed when required isolation is unavailable. It does
-not silently substitute a host compiler. The wrapper limits individual
-process resources; production service isolation and aggregate resource limits
-would require further work.
+An incorrect answer and a missing compiler both deny reward. They should not
+be interpreted as the same experimental outcome: an unhealthy worker is not
+evidence of a weaker policy. Traces retain status, stage, reason, timing,
+backend, scope, specification and submission digests, invocation count and
+diagnostics. Evaluation should report operational failures separately.
 
-Reward and metrics may be requested concurrently. They share one verification
-result rather than compiling the same rollout twice. The v1 adapter uses an
-event-loop-local single-flight cache keyed by exact input and runtime settings;
-consumer cancellation does not cancel verification needed by other consumers.
-Operational errors can be shared while in flight but are not retained as
-completed cached verdicts, so a repaired backend can be tried again.
+Exit code 1 alone does not establish a mathematical rejection. Current candidate
+source requires the complete recognized `native_decide` diagnostic that its
+proposition evaluated to false. Unrecognized, truncated or mixed error output,
+timeouts, wrapper failure codes, signals and launch errors are operational.
+This is conservative interpretation of trusted checker diagnostics, not an
+exported mathematical counterexample. A changed diagnostic format can require
+an adapter update; the current candidate still needs its live validation gate.
 
-Process classification also has a limit: exit code 1 from the checker can
-represent a Lean rejection or an otherwise unidentified failure. Timeouts,
-wrapper failure codes, signals, and launch errors are explicitly operational.
-Distinguishing every possible exit-1 infrastructure failure needs stronger
-structured evidence from the checker process.
+The native path requires Lean 4.23.0 and an explicitly configured
+`lean-isolated` launcher. Missing isolation fails closed, with no silent host
+compiler or Python-reward fallback. Per-process limits do not constitute a
+complete production service isolation design.
 
-## Where specifications could come from
+The adapters also avoid compiling the same rollout twice when reward and
+metrics are requested concurrently. They share an exact-input verification
+result, accounting for runtime settings. Consumer cancellation does not cancel
+work still needed by another consumer. Operational failures are not retained
+as completed cached verdicts, allowing a repaired backend to be tried again.
+These are execution properties, separate from the mathematical contract.
 
-Procedural generation makes the initial fidelity problem manageable: the
-specification comes first, and prose is rendered from it. An existing
-natural-language dataset introduces another task: formalizing the question.
-Dropping the answer column alone does not create a checker.
+## Where specifications come from
 
-Each problem needs its own semantic instance, but it need not need a new
-handwritten verifier. A reusable family can take parameters; a compositional
-expression language can represent many instances; existing formal statements
-can provide contracts. The present bounded DSL covers only a selected subset
-of public math questions. Rational or real answers, geometry, symbolic answer
-sets, and unbounded claims need additional contracts. Adding an arbitrary
-finite search limit would change an unbounded problem rather than formalize it.
+Procedural generation makes the first specification problem manageable:
+construct the contract first, then render the prompt from it. This avoids a
+separate open-ended prose formalization step, although the renderer and checker
+still need review.
 
-A future model-assisted pipeline could construct specifications from questions
-in a separate context, blind to reference solutions and solver candidates. A
-second reviewer could check quantities, units, domains, quantifiers, and the
-objective; type checks and boundary mutations could reject malformed or
-suspicious specifications. Only then would the environment freeze the
-contract before the solving policy receives the task.
+An existing math dataset reverses that direction. The question arrives in
+prose; someone must construct its semantic specification. Dropping the answer
+column alone does not produce a checker.
 
-Different models or contexts can reduce direct leakage, but they do not
-establish independent errors. Two formalizers can omit the same condition.
-Compilation and provability cannot establish fidelity: a perfectly valid
-theorem can express the wrong problem. Research such as
-[Beyond Compilation](https://arxiv.org/abs/2606.31002) treats faithful statement
-formalization as a separate evaluation target.
+Every question needs a semantic instance, but not necessarily a new handwritten
+verifier. A family can reuse a checker with different parameters, and a
+compositional expression language can encode many arithmetic instances. What
+cannot be reused blindly is the interpretation of the question.
 
+For example, “earn $12 per hour for 50 minutes” can be encoded as:
+
+```text
+(12 * 50) // 60
+```
+
+The units explain the expression: dollars per hour times minutes, divided by
+60 minutes per hour. This particular division is exact. If it were not, floor
+division would impose a rounding rule that needs justification. The
+specification stores the computation, rather than its evaluated answer.
+
+The [question-only GSM8K demonstration](docs/GSM8K_DEMONSTRATION.md) freezes
+three admitted development contracts from five selected training questions,
+records two exclusions, and includes one already known public-test example.
+One exclusion counts friends without stating how many clips each friend
+bought; another leaves a year-to-weeks convention unstated. These exclusions
+illustrate a deliberate admission policy, not a claim that the original
+dataset has no intended answers.
+
+The questions are tied to upstream provenance. Solution fields are discarded
+before formalization and are absent from the imported artifacts. The same
+assistant context constructed and reviewed the contracts, as disclosed in
+the [semantic audit](docs/GSM8K_SPEC_AUDIT.md). That is not independent review,
+and answer-blind inputs do not establish that a public question or answer was
+absent from model pretraining. The demonstration has Python-only controls,
+but no completed current native or policy evaluation.
+
+The known public-test example demonstrates the interface; it is not a fresh
+held-out measurement. For a future study, use training questions for policy
+updates, reserve a development subset for design choices, and keep test
+questions evaluation-only. Repeatedly using test feedback to revise contracts
+or prompts compromises their role as held-out data. Dataset solutions consulted
+later for QA must be disclosed separately from answer-blind construction and
+reward-time checking. [Dataset-role notes](docs/DATASET_ROLES.md) describe
+possible sources and their contract limitations.
+
+Generated procedural splits remove duplicates and exclude shared specification
+digests. A digest identifies an exact encoded task. Digest separation does
+not establish semantic independence between similar problems, absence from
+pretraining, or generalization beyond the implemented families.
+
+## Could a separate model construct the specifications?
+
+A future model-assisted pipeline could produce a specification in a context
+separate from the solving policy, without reference solutions or candidate
+rollouts. Review would then check quantities, units, domains, quantifiers and
+the objective; compilation and mutation controls could detect some errors.
+Only an admitted contract would be frozen and passed to the solver.
+
+That pipeline is not currently automated. A different model or context can
+reduce direct leakage, but two formalizers can still omit the same condition.
+Compilation establishes that an encoding is well formed; proving a claim
+about it does not establish that it expresses the question.
+
+[Beyond Compilation](https://arxiv.org/abs/2606.31002) studies this gap between
+Lean compilation and faithful statement formalization.
 [Symbolic equivalence and semantic consistency](https://arxiv.org/abs/2410.20936)
-are useful validation ideas, with limits. For answer-finding, compare the
-acceptance relations over all admissible candidates, not merely whether two
-closed claims are provable. Backtranslation, independent review, and human
-calibration can catch errors that formal equivalence between two identically
-mistaken specifications preserves. Report specification coverage and estimated
-fidelity separately from solver success on accepted specifications.
+offer complementary validation ideas. For answer-finding, equivalence should
+concern the acceptance relations across admissible candidates, rather than
+just whether two particular closed claims are provable.
 
-An [offline GSM8K demonstration](docs/GSM8K_DEMONSTRATION.md) now accepts
-question-only inputs and reviewed specifications, after the procedural
-foundation. It includes four development tasks and one public test example;
-its current review comes from the same assistant that constructed the specs,
-so independent fidelity review remains outstanding. It has no native or
-learning result. The known public test example illustrates the interface.
-The official test split must remain evaluation-only if we want a held-out
-measurement; public availability still leaves pretraining contamination open.
-Questions from training can supply a separate development slice. Dataset
-solutions can be consulted afterward for QA, but that must be disclosed and
-kept separate from answer-blind construction and reward-time checking.
+Even equivalent encodings can share the same mistaken interpretation.
+Backtranslation, independent review and human calibration address another
+part of the problem. A study should report specification coverage and fidelity
+separately from solver success on admitted contracts. Unsupported or
+unfaithful formalization is not simply a wrong solver answer.
 
-## What the evidence supports, and what comes next
+## What has actually been demonstrated?
 
-The published RL 0.2.1 / Hub 0.1.1 release has preserved source tests, repeatable
-wheel builds, installed-package checks, and isolated Lean positive and negative
-controls. Exact artifacts and runtime boundaries are recorded in
-[the release evidence](docs/RELEASE_EVIDENCE_0.2.1.md). A later source revision
-needs its own live checks and release gate; passing tests with live integrations
-skipped is not equivalent evidence.
+The current source candidate and the older published release have different
+evidence. Their records should not be combined into a claim that the latest
+code passed native validation.
+
+| Record | What it supports | Boundary |
+| --- | --- | --- |
+| Published RL 0.2.1 / Hub 0.1.1 | Preserved source tests, repeatable wheel builds, consumer installation and isolated Lean acceptance/rejection controls | Evidence for those historical artifacts |
+| Current integration candidate, recorded 2026-10-03 | 178 RL tests; 85 Engine tests plus 40 subtests; four wheel builds; fresh dependency and installed-package checks | 14 RL and 10 Engine live/platform skips; native validation blocked |
+| Optional trainer smoke | Actual gradient updates, frozen-reference integrity and a tiny checkpoint round trip | Random model fixture, not mathematical learning evidence |
+
+The [current validation record](docs/CURRENT_VALIDATION.md) links the logs
+and [integration closeout report](docs/evidence/engine-integration-20261003/closeout.json). Candidate versions
+are Engine 0.3.3, RL core/sequence 0.2.2 and Hub 0.1.2; they have not replaced
+the public releases. The available execution surface lacks the `/proc` access
+needed by stock Lean and bubblewrap. Installing the official toolchain did
+not resolve that environment limitation. The closeout command correctly
+reports source delivery complete, native validation blocked and release
+readiness false.
+
+The earlier [release evidence](docs/RELEASE_EVIDENCE_0.2.1.md) remains available.
+The public [Prime Hub environment](https://app.primeintellect.ai/dashboard/environments/stanley-ngugi/mathcheck-rl)
+has recorded consumer installation and local setup evidence. A hosted
+inference attempt stopped before a rollout because of insufficient balance;
+no hosted model execution is inferred from successful installation.
 
 A historical sequence-program run completed training steps and wrote a
-checkpoint. It establishes that an earlier loop executed, not that the current
-specification environment improves mathematical performance. The legacy
-`native-verify-seq` adapter checks agreement with finite observations; it does
-not prove a sequence rule for every natural number. Its evidence is kept
-separate from the primary environment.
+checkpoint. That was a different contract: the legacy `native-verify-seq`
+adapter checks agreement with finite observations. It does not establish a
+sequence rule for every natural number, or a learning gain for the current
+specification environment. [Reproducibility notes](docs/REPRODUCIBILITY.md)
+preserve that history separately.
 
-The primary environment is distributed on
-[Prime Hub](https://app.primeintellect.ai/dashboard/environments/stanley-ngugi/mathcheck-rl).
-Consumer installation and local setup were tested for the published version.
-An authenticated hosted inference attempt stopped before a rollout because of
-insufficient balance. Hosted model execution and learning gains remain
-unestablished. [Reproducibility notes](docs/REPRODUCIBILITY.md) retain the
-installation details and historical records without interrupting this argument.
+## A finite delivery and an optional learning experiment
 
-The next empirical question is modest: can optimizing this reward improve
-performance on different frozen instances of the implemented families? The
-[procedural pilot](docs/M5_PILOT_PROTOCOL.md) defines paired pre/post evaluation,
-a separate confirmatory split, family-balanced training, explicit policy
-updates, and a feasible call allocation. Its revised protocol is a planning
-artifact, not a completed experiment. Exact model, trainer, checkpoint and
-runtime identities must be frozen, and native release checks and quota
-availability must be established before execution.
+The [finish line](docs/FINISH_LINE.md) requires explicit contracts, source
+checks, reproducible installed packages, honest writing, the disclosed small
+dataset demonstration and current native checking evidence. Source delivery
+is complete. One required validation gate remains: execute the existing
+closeout command on supported Linux and pass its live suites, native controls
+and installed-wheel release gate.
 
-The order matters: stabilize the current contract and instrument, check their
-behavior, measure a bounded procedural pilot, then demonstrate a reviewed
-dataset import. Larger autoformalization and richer mathematical contracts can
-follow evidence rather than stand in for it.
+An RL training run is not part of that completion requirement. The
+[optional procedural pilot](docs/M5_PILOT_PROTOCOL.md) and
+[local trainer](docs/LOCAL_TRAINING.md) are implemented for a separately
+requested experiment. They ask a modest further question: can optimizing this
+reward improve performance on different frozen instances of these families?
+The protocol defines paired evaluation and a separate confirmatory split;
+no pretrained-policy pilot or learning gain has been demonstrated.
 
-MathCheck RL's useful claim is concrete: a model can submit ordinary answer data
-and receive a mechanically checked reward against a complete formalized
-contract, without a precomputed reference candidate. The difficult work moves
-into specifying the right contract and preserving the evidence needed to
-interpret each result. That is a tractable foundation for research, provided
-we measure both parts honestly.
+Broader mathematical contracts, automatic formalization and larger dataset
+studies are separate projects. They should not keep this bounded delivery open.
+
+MathCheck RL demonstrates a concrete separation of responsibilities: the
+environment owns the question's encoded contract, the model supplies answer
+data, and the checker produces an interpretable reward without a stored
+reference candidate. The hard work remains specifying the right contract
+and preserving evidence for what each verdict means. That boundary is the
+foundation of the project.
 
 The code is public under the MIT license at
 <https://github.com/stanleyngugi/mathcheck-rl>. The companion
-[Engine article](https://stanleyngugi.netlify.app/posts/mathcheck-engine.html)
+[Engine article](https://github.com/stanleyngugi/mathcheck-engine/blob/main/TECHNICAL_ARTICLE.md)
 explains the generated checking artifacts in more detail.

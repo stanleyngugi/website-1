@@ -29,7 +29,7 @@ POSTS = (
     {
         "name": "MathCheck Engine",
         "slug": "mathcheck-engine",
-        "description": "A verifier that turns bounded mathematical specifications and candidate answers into Lean programs, checks the complete finite domain in isolation, and records what each verdict means.",
+        "description": "A verifier that turns bounded mathematical specifications and candidate answers into Lean programs, checks the complete finite domain, and records the scope and outcome of each verdict.",
         "repo": "https://github.com/stanleyngugi/mathcheck-engine",
         "source_path": "TECHNICAL_ARTICLE.md",
         "publication": "2026-09-12",
@@ -50,10 +50,18 @@ def render(post):
     minutes = (len(original.split()) + 219) // 220
 
     result = subprocess.run(
-        ["pandoc", "--from=gfm", "--to=html", "--wrap=none", "--no-highlight"],
+        ["pandoc", "--from=gfm+tex_math_dollars", "--to=html", "--mathml", "--wrap=none", "--no-highlight"],
         input=body, text=True, capture_output=True, check=True,
     )
     article_body = result.stdout
+    # Long display formulas scroll within the article on narrow screens.
+    # MathML renders in the browser without loading a math JavaScript bundle.
+    article_body = re.sub(
+        r'<p>(<math display="block".*?</math>)</p>',
+        r'<div class="math-display" tabindex="0" role="region" '
+        r'aria-label="Scrollable mathematical formula">\1</div>',
+        article_body, flags=re.S,
+    )
     # Mermaid expects graph text directly inside its container, not a nested
     # Pandoc code element. If the module cannot load, this still shows source.
     article_body = re.sub(
