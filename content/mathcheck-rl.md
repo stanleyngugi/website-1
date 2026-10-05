@@ -309,13 +309,14 @@ evidence of a weaker policy. Traces retain status, stage, reason, timing,
 backend, scope, specification and submission digests, invocation count and
 diagnostics. Evaluation should report operational failures separately.
 
-Exit code 1 alone does not establish a mathematical rejection. Current candidate
-source requires the complete recognized `native_decide` diagnostic that its
+Exit code 1 alone does not establish a mathematical rejection. Engine 0.3.3
+requires the complete recognized `native_decide` diagnostic that its
 proposition evaluated to false. Unrecognized, truncated or mixed error output,
 timeouts, wrapper failure codes, signals and launch errors are operational.
 This is conservative interpretation of trusted checker diagnostics, not an
 exported mathematical counterexample. A changed diagnostic format can require
-an adapter update; the current candidate still needs its live validation gate.
+an adapter update. The released implementation passed the current live
+validation gate with Lean 4.23.0.
 
 The native path requires Lean 4.23.0 and an explicitly configured
 `lean-isolated` launcher. Missing isolation fails closed, with no silent host
@@ -369,8 +370,12 @@ before formalization and are absent from the imported artifacts. The same
 assistant context constructed and reviewed the contracts, as disclosed in
 the [semantic audit](docs/GSM8K_SPEC_AUDIT.md). That is not independent review,
 and answer-blind inputs do not establish that a public question or answer was
-absent from model pretraining. The demonstration has Python-only controls,
-but no completed current native or policy evaluation.
+absent from model pretraining. The completed native gate includes
+[eight Python/Lean differential controls](https://github.com/stanleyngugi/mathcheck-rl/tree/main/docs/evidence/native-closeout-whpx-20261005-final):
+a correct and an adjacent incorrect candidate for each of the three development
+contracts and the one public-test example. All agreed, with no operational
+errors. These are checker controls, not policy-performance measurements or
+independent evidence of specification fidelity.
 
 The known public-test example demonstrates the interface; it is not a fresh
 held-out measurement. For a future study, use training questions for policy
@@ -414,30 +419,42 @@ unfaithful formalization is not simply a wrong solver answer.
 
 ## What has actually been demonstrated?
 
-The current source candidate and the older published release have different
-evidence. Their records should not be combined into a claim that the latest
-code passed native validation.
+The current releases have completed native validation and publication.
+The distinction is between checking evidence and learning evidence: a healthy
+reward pipeline does not, by itself, show that optimizing it improves a model.
 
 | Record | What it supports | Boundary |
 | --- | --- | --- |
-| Published RL 0.2.1 / Hub 0.1.1 | Preserved source tests, repeatable wheel builds, consumer installation and isolated Lean acceptance/rejection controls | Evidence for those historical artifacts |
-| Current integration candidate, recorded 2026-10-03 | 178 RL tests; 85 Engine tests plus 40 subtests; four wheel builds; fresh dependency and installed-package checks | 14 RL and 10 Engine live/platform skips; native validation blocked |
-| Optional trainer smoke | Actual gradient updates, frozen-reference integrity and a tiny checkpoint round trip | Random model fixture, not mathematical learning evidence |
+| Joint native gate, 2026-10-05 | 96 Engine tests and 52 subtests; 182 RL tests; isolated native controls; Python/Lean differentials; repeatable builds of all four wheels; fresh installed-package checks | No required native skips; the optional PyTorch training module was skipped |
+| Published Engine 0.3.3 / RL 0.2.2 / Hub 0.1.2 | Downloaded artifact hashes, immutable dependency pins, fresh Windows and Linux consumer installs, and isolated installed-consumer acceptance/rejection controls on Linux | Installation and checker behavior, not hosted policy execution or a learning gain |
+| Earlier optional trainer smoke | Actual gradient updates, frozen-reference integrity and a tiny checkpoint round trip | Random model fixture, not mathematical learning evidence |
 
-The [current validation record](docs/CURRENT_VALIDATION.md) links the logs
-and [integration closeout report](docs/evidence/engine-integration-20261003/closeout.json). Candidate versions
-are Engine 0.3.3, RL core/sequence 0.2.2 and Hub 0.1.2; they have not replaced
-the public releases. The available execution surface lacks the `/proc` access
-needed by stock Lean and bubblewrap. Installing the official toolchain did
-not resolve that environment limitation. The closeout command correctly
-reports source delivery complete, native validation blocked and release
-readiness false.
+The unchanged joint gate passed on Ubuntu 24.04.4 under QEMU WHPX with
+Python 3.12.3, bubblewrap 0.9.0 and stock read-only Lean 4.23.0. It exited 0
+in 801.238 seconds, with native validation complete and release readiness
+true. The [closeout evidence](https://github.com/stanleyngugi/mathcheck-rl/tree/main/docs/evidence/native-closeout-whpx-20261005-final)
+records exact source revisions, toolchain provenance, commands, complete logs
+and artifact hashes.
 
-The earlier [release evidence](docs/RELEASE_EVIDENCE_0.2.1.md) remains available.
-The public [Prime Hub environment](https://app.primeintellect.ai/dashboard/environments/stanley-ngugi/mathcheck-rl)
-has recorded consumer installation and local setup evidence. A hosted
-inference attempt stopped before a rollout because of insufficient balance;
-no hosted model execution is inferred from successful installation.
+[Engine 0.3.3](https://github.com/stanleyngugi/mathcheck-engine/releases/tag/v0.3.3)
+and [RL core/sequence 0.2.2](https://github.com/stanleyngugi/mathcheck-rl/releases/tag/v0.2.2)
+are published on GitHub. The public
+[Prime Hub environment](https://app.primeintellect.ai/dashboard/environments/stanley-ngugi/mathcheck-rl)
+is version **0.1.2**. Prime rebuilt its wheel, so its archive hash differs from
+the locally validated wheel; the packaged environment code matches after
+normalizing line endings, and its Engine/core dependency pins are unchanged.
+A fresh Linux consumer installed the actual Prime wheel, passed `pip check`,
+and ran the six isolated native controls. Invalid input invoked no checker.
+The [publication record](docs/evidence/native-closeout-whpx-20261005-final/publication.json)
+retains both wheel identities and the installed-consumer results.
+
+The [current validation record](docs/CURRENT_VALIDATION.md#final-native-closeout--2026-10-05)
+preserves the earlier blocked attempts as history; the passing native gate and
+publication records supersede their pending status. The earlier
+[0.2.1 release evidence](docs/RELEASE_EVIDENCE_0.2.1.md) also remains available.
+A historical hosted inference attempt stopped before a rollout because of
+insufficient balance. The later publication and local consumer checks do not
+establish hosted model execution.
 
 A historical sequence-program run completed training steps and wrote a
 checkpoint. That was a different contract: the legacy `native-verify-seq`
@@ -450,10 +467,11 @@ preserve that history separately.
 
 The [finish line](docs/FINISH_LINE.md) requires explicit contracts, source
 checks, reproducible installed packages, honest writing, the disclosed small
-dataset demonstration and current native checking evidence. Source delivery
-is complete. One required validation gate remains: execute the existing
-closeout command on supported Linux and pass its live suites, native controls
-and installed-wheel release gate.
+dataset demonstration and current native checking evidence. Those requirements
+are complete: the unchanged Linux gate passed, the GitHub releases and Hub
+package are published, and fresh consumers passed the installed-package checks.
+The evidence is for this bounded delivery; broader mathematical coverage is
+not needed to close it.
 
 An RL training run is not part of that completion requirement. The
 [optional procedural pilot](docs/M5_PILOT_PROTOCOL.md) and

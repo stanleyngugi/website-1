@@ -119,7 +119,7 @@ def render(post):
         "description": post["description"],
         "author": {"@type": "Person", "name": "Stanley Ngugi"},
         "datePublished": post["publication"], "url": url,
-        "mainEntityOfPage": url, "dateModified": "2026-10-03",
+        "mainEntityOfPage": url, "dateModified": "2026-10-05",
     }
     prefix = prefix.replace(
         "</head>",

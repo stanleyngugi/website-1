@@ -263,7 +263,7 @@ all 48 controls completed with the expected outcomes and no operational
 failures. The [original record](https://github.com/stanleyngugi/mathcheck-engine/blob/main/evaluation_records/public_v1_computational_sweep.jsonl)
 preserves the timeouts.
 
-These are historical observations, not a current-candidate validation run or
+These are historical observations, not a validation run of release 0.3.3 or
 a controlled speedup benchmark. The repetitions did not control operating-system
 cache state. The records support a narrower conclusion: the revised representation
 completed the formerly failing controls in that experiment.
@@ -331,8 +331,8 @@ The structured APIs use these execution statuses:
 | `mathematical_rejection` | Complete recognized `native_decide` diagnostics report that the proposition evaluated to false |
 | `operational_error` | Execution failed or the output does not establish a recognized decision |
 
-Exit code 1 alone is insufficient for mathematical rejection. Current candidate
-source recognizes the complete negative-decision diagnostic specified by
+Exit code 1 alone is insufficient for mathematical rejection. Engine 0.3.3
+recognizes the complete negative-decision diagnostic specified by
 [Lean 4.23's own regression tests](https://github.com/leanprover/lean4/blob/v4.23.0/tests/lean/run/decideNative.lean).
 Unrecognized, truncated or mixed error output is conservatively operational.
 This is diagnostic interpretation, not an exported mathematical counterexample;
@@ -384,12 +384,22 @@ template checks supplied finite observations, not an infinite recurrence.
 Symbolic routines propose formulas or structures; they are not the structured
 API's final verification authority.
 
-The public release is **0.3.2**, whose evidence is preserved in
-[its release record](https://github.com/stanleyngugi/mathcheck-engine/blob/main/RELEASE_EVIDENCE_0.3.2.md). Source **0.3.3** is an unpublished
-candidate. [Current validation](https://github.com/stanleyngugi/mathcheck-engine/blob/main/CURRENT_VALIDATION.md) records source tests,
-artifact checks and the outstanding joint native gate separately. Historical
-native successes and current skipped tests do not establish that this
-candidate passed live validation.
+The published release is [**0.3.3**](https://github.com/stanleyngugi/mathcheck-engine/releases/tag/v0.3.3).
+On 2026-10-05, the unchanged joint Engine/RL gate passed on Ubuntu 24.04.4
+under QEMU WHPX, using Python 3.12.3, bubblewrap 0.9.0 and stock read-only
+Lean 4.23.0. The Engine suite passed **96 tests and 52 subtests**, with no
+required native checks skipped. The gate also passed the isolated native
+controls, repeatable wheel builds and fresh installed-package checks.
+
+[Current validation](https://github.com/stanleyngugi/mathcheck-engine/blob/main/CURRENT_VALIDATION.md)
+links the exact source revisions, commands, toolchain provenance and artifact
+hashes. The [joint closeout evidence](https://github.com/stanleyngugi/mathcheck-rl/tree/main/docs/evidence/native-closeout-whpx-20261005-final)
+also records downloaded release-asset verification and a fresh Linux consumer
+running isolated acceptance and rejection controls. These results establish
+the recorded checks on that platform; they do not establish translator
+correctness for every possible input or arbitrary prose-to-specification
+fidelity. The [0.3.2 release record](https://github.com/stanleyngugi/mathcheck-engine/blob/main/RELEASE_EVIDENCE_0.3.2.md)
+remains available as historical evidence.
 
 The Engine's contribution is this explicit boundary: the caller fixes a finite
 mathematical contract, the model supplies data, and the checker establishes
