@@ -1,51 +1,30 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CV - Stanley Ngugi</title>
     <meta name="description" content="Curriculum vitae of Stanley Ngugi, researcher working on AI for formal methods and reinforcement learning environments.">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <script>
-        (function () {
-            try {
-                var t = localStorage.getItem('theme');
-                if (!t) t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-                document.documentElement.setAttribute('data-theme', t);
-            } catch (e) {}
-        })();
-    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/styles.css">
 </head>
-<body>
-    <div class="container">
-        <header class="no-print">
-            <div class="header-inner">
-                <a href="/" class="logo">stanley<span>&gt;</span></a>
-                <button class="theme-btn" aria-label="Toggle theme">
-                    <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-                    <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-                </button>
-            </div>
-        </header>
+<body class="cv-body">
+    <nav class="cv-toolbar no-print" aria-label="CV actions">
+        <a href="/">← back home</a>
+        <button class="print-btn" onclick="window.print()">print / save as PDF</button>
+    </nav>
 
-        <main>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 26px;">
-                <a href="/" style="color: var(--muted); font-size: 13px;">← back home</a>
-                <button class="print-btn" onclick="window.print()">print / save as PDF</button>
-            </div>
-
-            <div class="cv-page">
+    <main class="cv-document">
+            <article class="cv-page cv-sheet" data-page="1 / 2">
                 <div class="cv-topbar">
                     <div>
                         <div class="cv-name">Stanley Ngugi</div>
-                        <div class="cv-role">Researcher — AI for Formal Methods &amp; RL Environments</div>
+                        <div class="cv-role">Independent AI Researcher in RL Environments and Formal Methods</div>
                     </div>
                     <div class="cv-contact">
-                        Nairobi, Kenya<br>
                         sngugi.research@gmail.com<br>
                         <a href="https://github.com/stanleyngugi">github.com/stanleyngugi</a><br>
                         <a href="https://stanleyngugi.netlify.app">stanleyngugi.netlify.app</a>
@@ -53,146 +32,122 @@
                 </div>
 
                 <section class="cv-section">
-                    <h2>Research Interests</h2>
+                    <h2>Research Focus</h2>
                     <p>
-                        AI for formal methods: LLM theorem proving, grammar-constrained decoding,
-                        verifier-in-the-loop reinforcement learning environments, and agentic proof
-                        search. Foundational work in mechanistic interpretability of large language
-                        models: knowledge editing, polysemanticity and feature entanglement, circuit
-                        analysis, cross-lingual representations in low-resource languages.
+                        Post-training with reinforcement learning, RL environment design, executable
+                        verification, formal methods for AI, and theorem-proving systems.
                     </p>
-                </section>
-
-                <section class="cv-section">
-                    <h2>Education</h2>
-                    <div class="cv-item">
-                        <div class="cv-item-head">
-                            <span class="cv-item-title">Self-directed study — machine learning &amp; mechanistic interpretability</span>
-                            <span class="cv-item-sub">2023 – present</span>
-                        </div>
-                        <ul>
-                            <li>Advanced mathematics for ML (linear algebra, calculus, probability, variational inference), transformer architectures, and PEFT methods, built from first principles through hands-on experimentation.</li>
-                            <!-- TODO: add formal education / degree / notable coursework here -->
-                            <li><em>[Add formal education details here]</em></li>
-                        </ul>
-                    </div>
-                </section>
-
-                <section class="cv-section">
-                    <h2>Publications &amp; Preprints</h2>
-                    <div class="cv-item">
-                        <div class="cv-item-head">
-                            <span class="cv-item-title"><a href="https://stanleyngugi.netlify.app/posts/2026-08-22-grammar-constrained-decoding-lean.html">A Quarter of Your Prover's Tokens Never Reach the Judge</a></span>
-                            <span class="cv-item-sub">2026</span>
-                        </div>
-                        <ul>
-                            <li><span>Technical blog post with artifacts.</span> First application of grammar-constrained decoding (vLLM + llguidance) to Lean tactic generation: 100% syntactic validity at zero latency cost, ~50% more effective RL rollouts, and a documented silent-fallback failure mode in serving stacks.</li>
-                        </ul>
-                    </div>
-                    <div class="cv-item">
-                        <div class="cv-item-head">
-                            <span class="cv-item-title"><a href="https://stanleyngugi.netlify.app/posts/2026-08-22-lean-tactic-language-cfg.html">Lean's Tactic Language Is Smaller Than It Looks</a></span>
-                            <span class="cv-item-sub">2026</span>
-                        </div>
-                        <ul>
-                            <li><span>Technical blog post with artifacts.</span> 53-production context-free grammar covering 99.86% of all 144,154 tactic lines in Mathlib; methodology cross-validated on Rocq (98.81%) and Isabelle (95.47%).</li>
-                        </ul>
-                    </div>
-                    <div class="cv-item">
-                        <div class="cv-item-head">
-                            <span class="cv-item-title"><a href="https://arxiv.org/abs/2508.07075">Surgical Knowledge Rewrite in Compact LLMs: An 'Unlearn-then-Learn' Strategy with ((IA)³) for Localized Factual Modulation and Catastrophic Forgetting Mitigation</a></span>
-                            <span class="cv-item-sub">2025</span>
-                        </div>
-                        <ul>
-                            <li><span>Solo author. arXiv:2508.07075.</span> Circuit-localized two-stage knowledge editing with (IA)³ on Phi-3-mini; 98.50% new-fact accuracy, 96% suppression of conflicting fact, 72% localization accuracy vs ~20% for direct fine-tuning.</li>
-                        </ul>
-                    </div>
-                    <div class="cv-item">
-                        <div class="cv-item-head">
-                            <span class="cv-item-title"><a href="https://arxiv.org/abs/2506.15415">Targeted Lexical Injection: Unlocking Latent Cross-Lingual Alignment in Lugha-Llama via Early-Layer LoRA Fine-Tuning</a></span>
-                            <span class="cv-item-sub">2025</span>
-                        </div>
-                        <ul>
-                            <li><span>Solo author. arXiv:2506.15415.</span> Discovered latent near-perfect Swahili–English alignment at Layer 2 of Lugha-Llama-8B-wura; contrastive LoRA fine-tuning improved output-level alignment +28% and generalized to unseen word pairs (p &lt; 7.17 × 10⁻²⁷).</li>
-                        </ul>
-                    </div>
-                    <div class="cv-item">
-                        <div class="cv-item-head">
-                            <span class="cv-item-title"><a href="https://stanleyngugi.netlify.app/posts/taming_polysemanticity.html">Taming Incidental Polysemanticity in Toy Models: How Network Training Choices Affect Feature Entanglement</a></span>
-                            <span class="cv-item-sub">2025</span>
-                        </div>
-                        <ul>
-                            <li><span>Technical blog post with full code.</span> SAE-based measurement of feature entanglement across training configurations; L2 regularization reduced polysemanticity 17.9% vs L1 (p&lt;0.01).</li>
-                        </ul>
-                    </div>
                 </section>
 
                 <section class="cv-section">
                     <h2>Research Experience</h2>
                     <div class="cv-item">
                         <div class="cv-item-head">
-                            <span class="cv-item-title">Independent Researcher — AI for formal methods &amp; LLM internals</span>
+                            <span class="cv-item-title">Independent AI Researcher</span>
                             <span class="cv-item-sub">2024 – present</span>
                         </div>
                         <ul>
-                            <li>Built a context-free grammar and corpus extractor for the Lean 4 tactic sublanguage (99.86% coverage of Mathlib; cross-validated on Rocq and Isabelle), then benchmarked grammar-constrained decoding of Qwen2.5-Coder-7B and Goedel-Prover-V2 via vLLM + llguidance (<a href="https://github.com/stanleyngugi/lean-tactic-research">code</a>).</li>
-                            <li>Designed and ran circuit-localization pipelines to identify components encoding specific facts before targeted PEFT interventions (<a href="https://github.com/stanleyngugi/surgical_knowledge_editing">code</a>).</li>
-                            <li>Built contrastive-learning LoRA training setups targeting empirically identified optimal layers for cross-lingual alignment (<a href="https://github.com/stanleyngugi/tli_project">code</a>).</li>
-                            <li>Trained toy overcomplete networks and sparse autoencoders to quantify polysemanticity under different regularization schemes (<a href="https://github.com/stanleyngugi/taming_polysemanticity">code</a>).</li>
+                            <li>Build RL environments for mathematical reasoning and code generation where rewards come from executable checks and formal verification.</li>
+                            <li>Build isolated, fail-closed judges and test them against malformed outputs, timeouts, crashes, inconsistent verifier reports, and attempts to exploit the reward.</li>
                         </ul>
                     </div>
-                    <!-- TODO: add internships, collaborations, mentorships if any
-                    <div class="cv-item">
-                        <div class="cv-item-head">
-                            <span class="cv-item-title">[Role] — [Organization]</span>
-                            <span class="cv-item-sub">[Dates]</span>
-                        </div>
-                    </div>
-                    -->
                 </section>
 
                 <section class="cv-section">
-                    <h2>Technical Skills</h2>
+                    <h2>Selected Projects &amp; Technical Writing</h2>
+                    <div class="cv-item">
+                        <div class="cv-item-head">
+                            <span class="cv-item-title"><a href="https://github.com/stanleyngugi/formally-verified-code-rl">Formally Verified C</a></span>
+                            <span class="cv-item-sub">RL environment · formal verification</span>
+                        </div>
+                        <ul>
+                            <li>Built an RL environment where models write C functions and reward comes from Frama-C proving that the implementation satisfies a fixed specification, including runtime safety.</li>
+                            <li>Released 64 tasks, an isolated Frama-C judge, adversarial tests, and reproducible proof records. The published source passed 57/57 tests.</li>
+                            <li>Article: <a href="https://stanleyngugi.netlify.app/posts/formally-verified-c">An RL Environment Where C Code Has to Be Proved, Not Just Tested</a>.</li>
+                        </ul>
+                    </div>
+                    <div class="cv-item">
+                        <div class="cv-item-head">
+                            <span class="cv-item-title"><a href="https://github.com/stanleyngugi/mathcheck-rl">MathCheck RL</a></span>
+                            <span class="cv-item-sub">math RL environment</span>
+                        </div>
+                        <ul>
+                            <li>Built a math RL environment for bounded integer problems that does not store expected answers. Models submit integers or complete finite certificates, and reward comes from checking each submission against the full encoded problem rather than requiring a model-written proof.</li>
+                            <li>Article: <a href="https://stanleyngugi.netlify.app/posts/mathcheck-rl">Grading Mathematical Answers Without Answer Keys</a>.</li>
+                        </ul>
+                    </div>
+                    <div class="cv-item">
+                        <div class="cv-item-head">
+                            <span class="cv-item-title"><a href="https://github.com/stanleyngugi/mathcheck-engine">MathCheck Engine</a></span>
+                            <span class="cv-item-sub">Lean verification engine</span>
+                        </div>
+                        <ul>
+                            <li>Built the reusable verification engine behind MathCheck RL. It generates executable Lean checks for bounded integer problems, evaluates the entire finite domain, and returns definitive results for the encoded problem without asking models to produce proofs.</li>
+                            <li>Article: <a href="https://stanleyngugi.netlify.app/posts/mathcheck-engine">Building a Lean-Backed Verifier for Bounded Mathematical Answers</a>.</li>
+                        </ul>
+                    </div>
+                </section>
+            </article>
+
+            <article class="cv-page cv-sheet" data-page="2 / 2">
+                <section class="cv-section cv-section-first">
+                    <h2>Selected Projects &amp; Technical Writing, continued</h2>
+                    <div class="cv-item">
+                        <div class="cv-item-head">
+                            <span class="cv-item-title"><a href="https://github.com/stanleyngugi/ai-proof-grammars">Grammars for AI-Generated Mathematical Proof Steps</a></span>
+                            <span class="cv-item-sub">research + code</span>
+                        </div>
+                        <ul>
+                            <li>Studied Lean's tactic language by extracting tactics from real proofs, building and stress-testing a grammar, and testing how grammar constraints change Qwen's proof-step generation. The work separates staying inside the tactic language from producing a correct proof.</li>
+                            <li>Articles: <a href="https://stanleyngugi.netlify.app/posts/2026-08-22-lean-tactic-language-cfg.html">Building a Grammar for AI-Generated Mathematical Proof Steps</a> and <a href="https://stanleyngugi.netlify.app/posts/2026-08-22-grammar-constrained-decoding-lean.html">How a Grammar Changes AI-Generated Mathematical Proof Steps</a>.</li>
+                        </ul>
+                    </div>
+                    <div class="cv-item">
+                        <div class="cv-item-head">
+                            <span class="cv-item-title"><a href="https://stanleyngugi.netlify.app/posts/taming_polysemanticity.html">Taming Incidental Polysemanticity in Toy Models</a></span>
+                            <span class="cv-item-sub">technical study</span>
+                        </div>
+                        <ul>
+                            <li>Studied how training choices shape feature entanglement in overcomplete toy networks, using sparse autoencoders to compare learned representations across configurations and random seeds (<a href="https://github.com/stanleyngugi/taming_polysemanticity">code</a>).</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section class="cv-section">
+                    <h2>Preprints</h2>
+                    <div class="cv-item">
+                        <div class="cv-item-head">
+                            <span class="cv-item-title"><a href="https://arxiv.org/abs/2508.07075">Surgical Knowledge Rewrite in Compact LLMs: An 'Unlearn-then-Learn' Strategy with ((IA)³)</a></span>
+                            <span class="cv-item-sub">2025</span>
+                        </div>
+                        <ul>
+                            <li><span>Solo author. arXiv:2508.07075.</span> An early Phi-3-mini experiment that locates one factual association, suppresses it, and trains a counterfactual replacement; the full localization, training, and evaluation pipeline is public (<a href="https://github.com/stanleyngugi/surgical_knowledge_editing">code</a>).</li>
+                        </ul>
+                    </div>
+                    <div class="cv-item">
+                        <div class="cv-item-head">
+                            <span class="cv-item-title"><a href="https://arxiv.org/abs/2506.15415">Targeted Lexical Injection: Early-Layer LoRA for Swahili–English Lexical Alignment</a></span>
+                            <span class="cv-item-sub">2025</span>
+                        </div>
+                        <ul>
+                            <li><span>Solo author. arXiv:2506.15415.</span> An early experiment using small adapters to strengthen Swahili–English word alignment already present inside Lugha-Llama, evaluated on 623 training pairs and 63 unseen controls (<a href="https://github.com/stanleyngugi/swahili-lexical-alignment">code</a>).</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section class="cv-section">
+                    <h2>Research Capabilities</h2>
                     <dl class="cv-skills">
-                        <dt>Languages</dt>
-                        <dd>Python, Git, SQL (basic)</dd>
-                        <dt>ML frameworks</dt>
-                        <dd>PyTorch, Hugging Face Transformers, PEFT (LoRA, (IA)³)</dd>
-                        <dt>Interpretability</dt>
-                        <dd>Sparse autoencoders, circuit analysis, activation patching, probing, logit lens</dd>
-                        <dt>Formal methods &amp; decoding</dt>
-                        <dd>Lean 4 tactic language tooling, context-free grammar engineering, vLLM structured outputs (llguidance), constrained decoding; Rocq/Isabelle corpus extraction</dd>
-                        <dt>Data &amp; analysis</dt>
-                        <dd>NumPy, pandas, matplotlib, statistical testing (scipy)</dd>
-                        <dt>Infra &amp; tooling</dt>
-                        <dd>Linux, Jupyter, Weights &amp; Biases, Google Colab / cloud GPUs</dd>
-                        <dt>Writing</dt>
-                        <dd>LaTeX, technical blogging, research communication</dd>
+                        <dt>RL environments</dt>
+                        <dd>Environment and task design, reward construction, rollout design, GRPO experiment setup, training analysis, and ablations</dd>
+                        <dt>Formal verification</dt>
+                        <dd>Lean 4, Frama-C and ACSL, bounded computational verification, executable specifications, verifier-backed rewards, and fail-closed judge design</dd>
+                        <dt>Post-training</dt>
+                        <dd>Reinforcement-learning algorithms, GRPO experiment design, rollout analysis, parameter-efficient training, PyTorch, and Transformers</dd>
                     </dl>
                 </section>
 
-                <section class="cv-section">
-                    <h2>Languages</h2>
-                    <p>English (fluent) · Swahili (native) · <em>[adjust as accurate]</em></p>
-                </section>
-
-                <section class="cv-section">
-                    <h2>References</h2>
-                    <p style="color: inherit;">Available on request.</p>
-                </section>
-
-                <p style="margin-top: 34px; font-size: 11px; color: var(--muted);">
-                    Last updated: August 2026 · Latest version always at
-                    <a href="https://stanleyngugi.netlify.app/cv.html">stanleyngugi.netlify.app/cv.html</a>
-                </p>
-            </div>
-        </main>
-
-        <footer class="no-print">
-            © 2026 Stanley Ngugi
-        </footer>
-    </div>
-
-    <script src="/main.js"></script>
+            </article>
+    </main>
 </body>
 </html>
