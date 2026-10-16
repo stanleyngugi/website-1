@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Render the committed research articles with Pandoc.
 
-MathCheck sources are copies of their canonical GitHub articles. The C article
-is a website editorial revision. Preserve technical claims in either source;
+The MathCheck articles are author-revised website editions, and the C article
+is a website editorial revision. Preserve technical claims in these sources;
 only rewrite links and add website navigation here.
 """
 
@@ -20,8 +20,9 @@ POSTS = (
     {
         "name": "MathCheck RL",
         "slug": "mathcheck-rl",
+        "modified": "2026-10-17",
         "description": "Formal verification of bounded mathematical submissions against frozen specifications, producing RL rewards without stored answer keys.",
-        "previous_title": "Grading Mathematical Answers Without Precomputed Answer Keys",
+        "previous_title": "Grading Mathematical Answers Without Answer Keys",
         "repo": "https://github.com/stanleyngugi/mathcheck-rl",
         "source_path": "TECHNICAL_ARTICLE.md",
         "publication": "2026-09-12",
@@ -30,6 +31,7 @@ POSTS = (
     {
         "name": "MathCheck Engine",
         "slug": "mathcheck-engine",
+        "modified": "2026-10-17",
         "description": "A verifier that turns bounded mathematical specifications and candidate answers into Lean programs, checks the complete finite domain, and records the scope and outcome of each verdict.",
         "repo": "https://github.com/stanleyngugi/mathcheck-engine",
         "source_path": "TECHNICAL_ARTICLE.md",
@@ -128,7 +130,7 @@ def render(post):
         "author": {"@type": "Person", "@id": BASE + "/#person", "name": "Stanley Ngugi",
                    "url": BASE + "/", "sameAs": ["https://github.com/stanleyngugi"]},
         "datePublished": post["publication"], "url": url,
-        "mainEntityOfPage": url, "dateModified": "2026-10-06",
+        "mainEntityOfPage": url, "dateModified": post.get("modified", "2026-10-06"),
     }
     prefix = prefix.replace(
         "</head>",
@@ -167,7 +169,7 @@ def render(post):
     )
     return {
         "source": f"{post['repo']}/blob/main/{post['source_path']}",
-        "source_relation": "website editorial revision" if post['slug'] == 'formally-verified-c' else "canonical copy",
+        "source_relation": "website author rewrite" if post['slug'] in ('mathcheck-rl', 'mathcheck-engine') else "website editorial revision",
         "sha256": sha256(original.encode("utf-8")).hexdigest(),
         "output": f"posts/{post['slug']}.html", "title": title,
         "reading_minutes": minutes,
@@ -199,7 +201,7 @@ def main():
             value = re.sub(r'<title>.*?</title>', lambda m:'<title>'+escape(record['title'])+'</title>', match[0], flags=re.S)
             return re.sub(r'<description>.*?</description>', lambda m:'<description>'+escape(post['description'])+'</description>', value, flags=re.S)
         rss = re.sub(r'<item>.*?</item>', item, rss, flags=re.S)
-        sitemap = re.sub(r'(<url>\s*<loc>'+re.escape(canonical)+r'</loc>\s*<lastmod>).*?(</lastmod>)', lambda m:m[1]+'2026-10-06'+m[2], sitemap, flags=re.S)
+        sitemap = re.sub(r'(<url>\s*<loc>'+re.escape(canonical)+r'</loc>\s*<lastmod>).*?(</lastmod>)', lambda m:m[1]+post.get("modified", "2026-10-06")+m[2], sitemap, flags=re.S)
     (ROOT / "index.html").write_text(index)
     (ROOT / "rss.xml").write_text(rss)
     (ROOT / "sitemap.xml").write_text(sitemap)

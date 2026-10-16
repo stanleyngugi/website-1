@@ -14,7 +14,7 @@
       <description>An RL environment where models write C functions and reward comes from proving the code satisfies a fixed specification, rather than from passing a test suite.</description>
     </item>
     <item>
-      <title>Grading Mathematical Answers Without Answer Keys</title>
+      <title>Grading Mathematical Answers Without Precomputed Answer Keys</title>
       <link>https://stanleyngugi.netlify.app/posts/mathcheck-rl</link>
       <guid isPermaLink="true">https://stanleyngugi.netlify.app/posts/mathcheck-rl.html</guid>
       <pubDate>Sat, 12 Sep 2026 00:00:00 +0000</pubDate>
