@@ -1,7 +1,7 @@
 {
   "mathcheck-rl.md": {
     "source": "https://github.com/stanleyngugi/mathcheck-rl/blob/main/TECHNICAL_ARTICLE.md",
-    "sha256": "64d311315b64d4726998d6d67bce0819d5debe4024e3cde8be49b0d9c95bda55",
+    "sha256": "c45c1e6e53c6074cfdda724a58424412dd8b7b5576d88f187e590ed6e2d0c4fa",
     "output": "posts/mathcheck-rl.html",
     "title": "Grading Mathematical Answers Without Precomputed Answer Keys",
     "reading_minutes": 23
