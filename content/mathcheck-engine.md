@@ -175,7 +175,9 @@ The original sweep of this problem (which includes a sweep of sums, counts and p
 
 The problem was addressed by changing the data representation. Pairs are now serialized in the form of bounded decimal numbers, for example:
 
-`0,4;1,3` is an example.
+```text
+0,4;1,3
+```
 
 There is a Lean function that can interpret this representation as a list of pairs (returning an option type). The actual acceptance condition is now that the data is valid (i.e., its interpretation is not `none`), the interpreted data is equal to the correct relation (computed independently) and that the cardinality is correct (to avoid an issue where the interpretation could silently fail and produce an empty list).
 
