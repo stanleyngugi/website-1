@@ -33,6 +33,7 @@ POSTS = (
         "description": "A verifier that turns bounded mathematical specifications and candidate answers into Lean programs, checks the complete finite domain, and records the scope and outcome of each verdict.",
         "repo": "https://github.com/stanleyngugi/mathcheck-engine",
         "source_path": "TECHNICAL_ARTICLE.md",
+        "modified": "2026-10-17",
         "publication": "2026-09-12",
         "topics": "formal methods",
     },
@@ -119,7 +120,7 @@ def render(post):
         "description": post["description"],
         "author": {"@type": "Person", "name": "Stanley Ngugi"},
         "datePublished": post["publication"], "url": url,
-        "mainEntityOfPage": url, "dateModified": "2026-10-05",
+        "mainEntityOfPage": url, "dateModified": post.get("modified", "2026-10-05"),
     }
     prefix = prefix.replace(
         "</head>",
