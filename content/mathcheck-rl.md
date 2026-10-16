@@ -73,7 +73,9 @@ Note that the above acceptance rule only shows that the answer is the least elem
 
 Consider the following problem, where the goal is to find all integer pairs from the Cartesian product [0, 5) × [0, 5) that satisfy the following relation:
 
+```text
 x < y and x + y is equal to 4
+```
 
 For this example, the answer satisfying the relation is [(0, 4), (1, 3)]. A complete answer should be given in the following format:
 
