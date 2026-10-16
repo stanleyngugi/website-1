@@ -21,8 +21,9 @@ POSTS = (
         "name": "MathCheck RL",
         "slug": "mathcheck-rl",
         "description": "Formal verification of bounded mathematical submissions against frozen specifications, producing RL rewards without stored answer keys.",
-        "previous_title": "Grading Mathematical Answers Without Precomputed Answer Keys",
+        "previous_title": "Grading Mathematical Answers Without Answer Keys",
         "repo": "https://github.com/stanleyngugi/mathcheck-rl",
+        "modified": "2026-10-17",
         "source_path": "TECHNICAL_ARTICLE.md",
         "publication": "2026-09-12",
         "topics": "RL, formal methods",
@@ -119,7 +120,7 @@ def render(post):
         "description": post["description"],
         "author": {"@type": "Person", "name": "Stanley Ngugi"},
         "datePublished": post["publication"], "url": url,
-        "mainEntityOfPage": url, "dateModified": "2026-10-05",
+        "mainEntityOfPage": url, "dateModified": post.get("modified", "2026-10-05"),
     }
     prefix = prefix.replace(
         "</head>",
