@@ -128,7 +128,7 @@
 <p>Note that the above acceptance rule only shows that the answer is the least element in the range [0, 30). It does not show it is the least element without range restriction.</p>
 <h2 id="problem-with-valid-witness-but-not-the-correct-answer">Problem with valid witness but not the correct answer</h2>
 <p>Consider the following problem, where the goal is to find all integer pairs from the Cartesian product [0, 5) × [0, 5) that satisfy the following relation:</p>
-<p>x &lt; y and x + y is equal to 4</p>
+<pre class="text"><code>x &lt; y and x + y is equal to 4</code></pre>
 <p>For this example, the answer satisfying the relation is [(0, 4), (1, 3)]. A complete answer should be given in the following format:</p>
 <pre class="json"><code>{&quot;answer&quot;: 2, &quot;pairs&quot;: [[0, 4], [1, 3]]}</code></pre>
 <p>Notice that if only one of the pairs, e.g., [[0, 4]], is given in the answer payload, it is a valid witness but not a complete answer. The same goes for answering the number of pairs: even though there is no contradiction in the answer by claiming that there is only one pair (i.e., answer = 1) that satisfies the relation and listing one such pair, the answer is not correct.</p>
