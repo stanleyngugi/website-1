@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A Quarter of Your Prover's Tokens Never Reach the Judge - Stanley Ngugi</title>
+    <meta name="description" content="Grammar-constrained decoding makes 100% of generated Lean tactics parseable at zero latency cost — while hallucination stays at ~50%. That asymmetry is the point.">
+    <meta name="robots" content="noindex, follow">
+    <meta name="author" content="Stanley Ngugi">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <meta property="og:title" content="A Quarter of Your Prover's Tokens Never Reach the Judge">
+    <meta property="og:description" content="Grammar-constrained decoding makes 100% of generated Lean tactics parseable at zero latency cost — while hallucination stays at ~50%. That asymmetry is the point.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://stanleyngugi.netlify.app/posts/2026-08-22-grammar-constrained-decoding-lean.html">
+    <meta property="og:image" content="https://stanleyngugi.netlify.app/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="citation_title" content="A Quarter of Your Prover's Tokens Never Reach the Judge">
+    <meta name="citation_author" content="Ngugi, Stanley">
+    <meta name="citation_publication_date" content="2026-08-22">
+    <meta name="citation_online_date" content="2026-08-22">
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('theme');
+                if (!t) t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', t);
+            } catch (e) {}
+        })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-inner">
+                <a href="/" class="logo">stanley<span>&gt;</span></a>
+                <button class="theme-btn" aria-label="Toggle theme">
+                    <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                    <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                </button>
+            </div>
+        </header>
+
+        <main>
+            <a href="/" class="back-link">← back home</a>
+
+            <article class="prose">
+<p class="tldr-box">Historical version, retained for transparency. <a href="/posts/2026-08-22-grammar-constrained-decoding-lean.html">Read the expanded and corrected article</a>.</p>
+                <header class="article-header">
+                    <h1>A Quarter of Your Prover's Tokens Never Reach the Judge</h1>
+                    <div class="entry-date">August 22, 2026 · 13 min read · formal methods, LLMs, constrained decoding · <a href="https://github.com/stanleyngugi/lean-tactic-research">code ↗</a></div>
+                </header>
+
+                <div class="tldr-box">
+                    <div class="tldr-label">TL;DR</div>
+                    <p>What we learned by pointing a grammar-constrained decoder at Lean tactics — including the parts that broke.</p>
+                </div>
+
+                <h2>The setup nobody argues about</h2>
+
+                <p>If you train or run an LLM theorem prover against Lean, you have exactly one source of ground truth: the kernel. Everything else — the model's confidence, a reward model's opinion, your own intuition about whether <code>simp [foo_lt]</code> looks right — is provisional. The kernel is where correctness gets decided.</p>
+
+                <p>But the kernel is also deaf to certain inputs. It evaluates tactic terms, and before it can evaluate a tactic, that tactic has to parse. A generation like:</p>
+
+                <pre><code>The first step is to induct on the structure of n.</code></pre>
+
+                <p>is not a wrong proof. It is not a partially-right proof. It produces <em>no information at all</em>. It never reaches the judge. Whatever compute went into emitting those tokens — and whatever sampling budget they consumed inside an RL group — is spent outside earshot of the only oracle you have.</p>
+
+                <p>This suggests the wrong question and the right question. The wrong question is <em>"does constraining decoding make the model smarter?"</em> — of course it doesn't; masking logits changes nothing about what the model believes. The right question is: <strong>what fraction of generated tokens actually reach the kernel?</strong> Because every token that does is a token that gets back precise, machine-readable, per-step feedback — unknown identifiers with exact positions, unsolved goal states, type mismatches — and every token that doesn't is waste.</p>
+
+                <p>We ran a small, clean experiment to measure that fraction, and to see what a grammar constraint does to it.</p>
+
+                <h2>What we did</h2>
+
+                <ul>
+                    <li><strong>Task</strong>: given a real Mathlib theorem statement, generate one first proof step (tactic line). This is the granularity at which kernel-in-the-loop provers actually work.</li>
+                    <li><strong>Problems</strong>: 80 statements sampled mechanically (seeded) from a fresh clone of current Mathlib (~8,900 files). No cherry-picking; the same sample validates externally — the top-20 leading-keyword share of real Mathlib tactic lines came out at 82.4%, in line with three earlier independent measurements (~83–85%), so the corpus wasn't weird.</li>
+                    <li><strong>Models</strong>: Qwen2.5-Coder-7B-Instruct (a generalist coder) and Goedel-Prover-V2-8B (a model explicitly trained to emit Lean proofs).</li>
+                    <li><strong>Constraint</strong>: a hand-written CFG for the Lean tactic sublanguage (53 keyword-dispatched productions plus a permissive arguments catch-all). Its construction and comprehensiveness — 99.86% structural coverage across all of Mathlib, cross-validated on Rocq and Isabelle — are the subject of <a href="/posts/2026-08-22-lean-tactic-language-cfg.html">the companion post</a>; this one treats it as a given. Served through vLLM's structured-output backend backed by llguidance — genuine logit masking, not prompting.</li>
+                    <li><strong>Scoring</strong>: every generation parsed post-hoc against the same CFG; leading keywords checked against the corpus frequency table; referenced identifiers checked against 163,631 real declaration names extracted from Mathlib + Batteries source.</li>
+                    <li>8 samples per problem, temperature 0.8, both conditions identical except for the mask.</li>
+                </ul>
+
+                <h2>Result one: the constraint does its job perfectly</h2>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Qwen2.5-Coder-7B</th>
+                                <th>unconstrained</th>
+                                <th>constrained</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>syntactically valid under CFG</td>
+                                <td>65.6%</td>
+                                <td><strong>100.0%</strong></td>
+                            </tr>
+                            <tr>
+                                <td>leading token is a real tactic keyword</td>
+                                <td>60.2%</td>
+                                <td>91.2%</td>
+                            </tr>
+                            <tr>
+                                <td>mean latency per request</td>
+                                <td>0.3s</td>
+                                <td>0.3s</td>
+                            </tr>
+                            <tr>
+                                <td>distinct tactics per problem (diversity)</td>
+                                <td>7.10</td>
+                                <td>7.00</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>Three things worth noticing. First, the constraint works completely: zero invalid generations out of 640. Second, it's <em>free</em> — no measurable latency overhead, which surprises people who assume grammar masking is expensive. Third — and this was genuinely unexpected — <strong>diversity doesn't collapse</strong>. We feared a constrained decoder would fall into a narrow band of <code>simp</code>/<code>ring</code> boilerplate. It doesn't: essentially the same spread of distinct tactics per problem. A grammar that admits a permissive arguments slot after any recognized keyword preserves most of the model's exploration space while closing the syntax door.</p>
+
+                <h2>Result two: hallucination didn't move — and that's the point</h2>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>unconstrained</th>
+                                <th>constrained</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>generations citing ≥1 nonexistent identifier</td>
+                                <td>49.8%</td>
+                                <td>53.0%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>Roughly half of all generations cited at least one identifier that does not exist anywhere in Mathlib or Batteries — plausible-sounding fabrications like <code>ZMod.sub_eq_add_neg</code> or <code>T1Space_def</code>. The grammar constraint did nothing about this. Of course it did nothing: <code>simp [T1Space_def]</code> is perfectly grammatical. Whether the name between the brackets resolves is invisible to any context-free machinery.</p>
+
+                <p>Read this the right way, though. The constraint was never supposed to fix hallucination. It was supposed to guarantee that hallucinations <strong>become signal instead of silence</strong>. An unconstrained generation fails in two ways: sometimes semantically (name doesn't exist — but at least the kernel will tell you exactly that, with a categorized error and a token position), and sometimes syntactically (the line can't even be submitted — and then <em>nothing</em> tells you anything). The grammar eliminates the second failure class entirely. Every remaining error is now one the oracle knows how to talk about. That's what "coupling the generator to the verifier" means operationally: not fewer errors, but errors that are all <em>speakable</em>.</p>
+
+                <p>For training, this is the difference between a labeled example and a discarded one.</p>
+
+                <h2>Result three: even specialists bleed half their output</h2>
+
+                <p>Goedel-Prover-V2-8B generating in its native full-proof format gives the sharpest version of the yield story. Counting every tactic-looking line it emits across whole proofs:</p>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>generation mode</th>
+                                <th>tactic-lines that reach the kernel</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Qwen unconstrained, first-tactic</td>
+                                <td>64.9%</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Goedel native, full proofs</strong></td>
+                                <td><strong>49.9%</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Goedel with constraint*</td>
+                                <td>84.5%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>Even a model trained specifically on Lean proofs wastes about <strong>half</strong> its emitted proof lines on content that cannot be evaluated — prose scaffolding, malformed steps, truncated fragments. Under a constraint, every emitted line crosses the syntactic gate by construction.</p>
+
+                <p>Do the training-loop arithmetic. In a GRPO-style setup sampling groups of k rollouts, the number of rollouts that can contribute gradient is p_syntax · k. At p = 0.65 you're paying for a third of your GPU-hours to hear silence. At p = 1 the same budget buys ~50% more effective rollouts — before any improvement in the model itself, at zero measured latency cost. This compounds over every step of a training run. It's the same logic as a data flywheel spinning against friction: the wheel doesn't get stronger when you remove friction, it just stops losing torque — and distance traveled is torque × revolutions.</p>
+
+                <h2>The fine print, aka the two bugs that found us</h2>
+
+                <p>None of this survived contact with reality without corrections, and both corrections generalize.</p>
+
+                <p><strong>1. Your constraint may be silently off.</strong> Our first "constrained" runs contained markdown fences and English prose — impossible under the grammar. Cause: vLLM drops grammar enforcement for parallel-sampling requests (<code>n &gt; 1</code>), and separately can <em>silently fall back to unconstrained decoding</em> when the backend hits a per-request error (<code>disable_fallback=False</code> is the default). Nothing errors; you just get unmasked tokens wearing a constrained label. The Goedel row above carries an asterisk precisely because of this — it's a partial-enforcement run, honestly degraded. If you do this yourself: request <code>n=1</code>, pin the backend server-side, and <strong>assert enforcement post-hoc</strong> (zero fences in constrained output is a cheap smoke test). A verifier layer that can fail toward false confidence will, given time — this is the same lesson we've hit before, now confirmed from the serving side too.</p>
+
+                <p><strong>2. Permissive grammars quietly un-forbid.</strong> We deliberately left <code>sorry</code> out of the grammar. It showed up anyway: 2.5% of constrained generations contained it (vs 0.3% unconstrained), because the generic <code>IDENT ARGS</code> catch-all re-admits any keyword-shaped string <em>as an argument</em> — <code>exact sorry</code> parses fine. If you want hard guarantees ("never emit sorry"), a catch-all is a soft guarantee at best — and since llguidance's regex engine has no lookaheads, in-grammar exclusion isn't even expressible; the fix is generate→validate→resample (<code>hardened_generate.py</code> in the repo), which costs ~1.03 generations per sample at the observed violation rate. More generally: auditing what your fallback admits matters as much as what your named productions accept.</p>
+
+                <p>Also worth stating plainly: "reaches the kernel" here means <em>crosses the syntactic gate</em> — guaranteed parseable as a tactic application, hence submittable for evaluation. It is not a promise the proof succeeds, nor that our CFG's permissive argument slots match Lean's own parser exactly. And the hallucination checker is a name-table lookup with known edge cases; it's the same oracle for both arms, so the comparison stands, but individual percentages carry ±few-point uncertainty.</p>
+
+                <h2>Where this leaves us</h2>
+
+                <p>Grammar-constrained decoding for Lean tactics remains unpublished territory as of this writing — we could find no prior work applying token-level masking to tactic generation, which still surprises us given how little it costs and how cleanly it addresses the least interesting failure mode (syntax) in service of the most important resource (kernel contact).</p>
+
+                <p>The architecture this points at has three parts, each doing one job: <strong>the grammar maximizes contact</strong> between generator and oracle; <strong>the kernel converts contact into graded, per-step truth</strong>; and an interaction layer (Pantograph-style state DAG) turns each contact into step-level rewards rather than pass/fail verdicts. None of the three makes the model smarter. Together they decide how much of what the model already knows can be converted into learning signal per GPU-hour.</p>
+
+                <p>The next experiment is obvious and cheap: wire the same constrained decoder into a closed loop against a real kernel and measure pass@k on core-Lean goals — feedback <em>quality</em>, not just contact rate. But the yield result alone justifies the machinery: if you're training a prover and a quarter to half of your sampled tokens die at the parser, the cheapest capability gain available isn't a bigger model. It's making sure every token gets to speak to the judge.</p>
+
+                <h2>References</h2>
+
+                <div class="refs">
+                    <p>Shao, Z., Wang, P., Zhu, Q., Xu, R., Song, J., Bi, X., et al. (2024). <a href="https://arxiv.org/abs/2402.03300">DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models</a>. arXiv:2402.03300. <span style="color: var(--muted);">(introduces GRPO)</span></p>
+                    <p>Hui, B., Yang, J., Cui, Z., Yang, J., Liu, D., Zhang, L., et al. (2024). <a href="https://arxiv.org/abs/2409.12186">Qwen2.5-Coder Technical Report</a>. arXiv:2409.12186.</p>
+                    <p>Lin, Y., Wang, H., Liu, H., et al. (2024). <a href="https://arxiv.org/abs/2405.04088">Goedel-Prover: An Open-Source Tool for Automated Theorem Proving</a>. arXiv:2405.04088. <span style="color: var(--muted);">(Goedel-Prover-V2 is a later checkpoint from the same team)</span></p>
+                    <p>Kwon, W., Li, Z., Zhuang, S., Sheng, Y., Zheng, L., Yu, C. H., et al. (2023). <a href="https://arxiv.org/abs/2309.06180">Efficient Memory Management for Large Language Model Serving with PagedAttention</a>. SOSP 2023. <span style="color: var(--muted);">(vLLM)</span></p>
+                    <p>Microsoft. <a href="https://github.com/microsoft/llguidance">llguidance</a>: Foundation for structured outputs in vLLM and guidance-based constrained decoding.</p>
+                    <p>Aniva, L., et al. <a href="https://github.com/leanprover/Pantograph">Pantograph</a>: A Machine-to-Machine Interaction System for Lean 4.</p>
+                    <p>Ngugi, S. (2026). <a href="/posts/2026-08-22-lean-tactic-language-cfg.html">Lean's Tactic Language Is Smaller Than It Looks</a>. Companion post.</p>
+                </div>
+
+                <div class="cite-box">
+                    <div class="cite-label">Cite this post</div>
+                    <pre><code>@misc{ngugi2026quarter,
+  title        = {A Quarter of Your Prover's Tokens Never Reach the Judge},
+  author       = {Ngugi, Stanley},
+  year         = {2026},
+  howpublished = {\url{https://stanleyngugi.netlify.app/posts/2026-08-22-grammar-constrained-decoding-lean.html}},
+  note         = {Companion code: \url{https://github.com/stanleyngugi/lean-tactic-research}}
+}</code></pre>
+                </div>
+
+                <hr style="margin: 48px 0;">
+
+                <p style="font-size: 15px;">
+                    <em>Artifacts: <a href="https://github.com/stanleyngugi/lean-tactic-research">github.com/stanleyngugi/lean-tactic-research</a> →
+                    <code>post2-constrained-decoding/</code> (generation, scoring and yield scripts, raw generations, score CSVs) plus shared
+                    <code>data/</code> (goal set, keyword table, 163k-declaration name table). Stack: vLLM 0.10.2 + llguidance on a single
+                    RTX A5000; total compute ≈ 2.5 GPU-hours.</em>
+                </p>
+
+                <p style="font-size: 15px;">
+                    <em>This is the companion to <a href="/posts/2026-08-22-lean-tactic-language-cfg.html">Lean's Tactic Language Is Smaller Than It Looks</a>, which covers how the grammar was built and measured.</em>
+                </p>
+
+                <p style="margin-top: 40px;">
+                    <em>If you build on this, I'd love to hear about it —
+                    sngugi.research@gmail.com.</em>
+                </p>
+            </article>
+        </main>
+
+        <footer>
+            © 2026 Stanley Ngugi · <a href="https://github.com/stanleyngugi/lean-tactic-research">code</a>
+        </footer>
+    </div>
+
+    <script src="/main.js"></script>
+</body>
+</html>

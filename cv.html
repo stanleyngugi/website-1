@@ -10,6 +10,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/styles.css">
+    <meta name="author" content="Stanley Ngugi">
+    <link rel="canonical" href="https://stanleyngugi.netlify.app/cv">
+    <meta property="og:title" content="CV - Stanley Ngugi">
+    <meta property="og:type" content="profile">
+    <meta property="og:url" content="https://stanleyngugi.netlify.app/cv">
 </head>
 <body class="cv-body">
     <nav class="cv-toolbar no-print" aria-label="CV actions">
@@ -21,7 +26,7 @@
             <article class="cv-page cv-sheet" data-page="1 / 2">
                 <div class="cv-topbar">
                     <div>
-                        <div class="cv-name">Stanley Ngugi</div>
+                        <h1 class="cv-name">Stanley Ngugi</h1>
                         <div class="cv-role">Independent AI Researcher in RL Environments and Formal Methods</div>
                     </div>
                     <div class="cv-contact">
@@ -34,8 +39,13 @@
                 <section class="cv-section">
                     <h2>Research Focus</h2>
                     <p>
-                        Post-training with reinforcement learning, RL environment design, executable
-                        verification, formal methods for AI, and theorem-proving systems.
+                        I'm a 20-year-old self-taught independent AI researcher focused on
+                        reinforcement learning for language model post-training, particularly
+                        in mathematical reasoning and coding. My work involves developing
+                        RL environments and designing reward functions for these tasks.
+                    </p>
+                    <p>
+                        Recently I developed and released a C verification environment that uses Frama-C to check C programs against their formal specifications, and a bounded integer math environment which checks answers in Lean, where the model supplies an integer answer rather than a proof. I also worked on grammar-constrained generation of proof tactics in Lean. I typically release code, task suites, and experimental evidence for the tasks I work on.
                     </p>
                 </section>
 
@@ -76,6 +86,12 @@
                             <li>Article: <a href="https://stanleyngugi.netlify.app/posts/mathcheck-rl">Grading Mathematical Answers Without Answer Keys</a>.</li>
                         </ul>
                     </div>
+                </section>
+            </article>
+
+            <article class="cv-page cv-sheet" data-page="2 / 2">
+                <section class="cv-section cv-section-first">
+                    <h2>Selected Projects &amp; Technical Writing, continued</h2>
                     <div class="cv-item">
                         <div class="cv-item-head">
                             <span class="cv-item-title"><a href="https://github.com/stanleyngugi/mathcheck-engine">MathCheck Engine</a></span>
@@ -86,12 +102,6 @@
                             <li>Article: <a href="https://stanleyngugi.netlify.app/posts/mathcheck-engine">Building a Lean-Backed Verifier for Bounded Mathematical Answers</a>.</li>
                         </ul>
                     </div>
-                </section>
-            </article>
-
-            <article class="cv-page cv-sheet" data-page="2 / 2">
-                <section class="cv-section cv-section-first">
-                    <h2>Selected Projects &amp; Technical Writing, continued</h2>
                     <div class="cv-item">
                         <div class="cv-item-head">
                             <span class="cv-item-title"><a href="https://github.com/stanleyngugi/ai-proof-grammars">Grammars for AI-Generated Mathematical Proof Steps</a></span>
@@ -99,12 +109,12 @@
                         </div>
                         <ul>
                             <li>Studied Lean's tactic language by extracting tactics from real proofs, building and stress-testing a grammar, and testing how grammar constraints change Qwen's proof-step generation. The work separates staying inside the tactic language from producing a correct proof.</li>
-                            <li>Articles: <a href="https://stanleyngugi.netlify.app/posts/2026-08-22-lean-tactic-language-cfg.html">Building a Grammar for AI-Generated Mathematical Proof Steps</a> and <a href="https://stanleyngugi.netlify.app/posts/2026-08-22-grammar-constrained-decoding-lean.html">How a Grammar Changes AI-Generated Mathematical Proof Steps</a>.</li>
+                            <li>Articles: <a href="https://stanleyngugi.netlify.app/posts/2026-08-22-lean-tactic-language-cfg">Building a Grammar for AI-Generated Mathematical Proof Steps</a> and <a href="https://stanleyngugi.netlify.app/posts/2026-08-22-grammar-constrained-decoding-lean">How a Grammar Changes AI-Generated Mathematical Proof Steps</a>.</li>
                         </ul>
                     </div>
                     <div class="cv-item">
                         <div class="cv-item-head">
-                            <span class="cv-item-title"><a href="https://stanleyngugi.netlify.app/posts/taming_polysemanticity.html">Taming Incidental Polysemanticity in Toy Models</a></span>
+                            <span class="cv-item-title"><a href="https://stanleyngugi.netlify.app/posts/taming_polysemanticity">Taming Incidental Polysemanticity in Toy Models</a></span>
                             <span class="cv-item-sub">technical study</span>
                         </div>
                         <ul>

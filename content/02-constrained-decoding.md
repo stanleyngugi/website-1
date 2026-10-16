@@ -18,7 +18,7 @@ This is an experiment about how the model's output distribution changes; it does
 
 Autoregressive grammar aware decoding is a procedure to sample from an autoregressive model where a token `v` is only allowed to be sampled if, after decoding it to a character sequence, the prefix of generated characters can still be completed to a string in the language of the grammar.
 
-In more detail, let’s say the token sequence sampled so far is `x`. Then, instead of sampling the next token `v` according to <i>p</i>(<i>v</i> ∣ <i>x</i>), the distribution is modified to: 
+In more detail, let’s say the token sequence sampled so far is `x`. Then, instead of sampling the next token `v` according to <i>p</i>(<i>v</i> ∣ <i>x</i>), the distribution is modified to:
 
 <div class="equation" role="math" aria-label="q of v given x equals p of v given x times M sub G of x v, divided by the sum over u of p of u given x times M sub G of x u">
 <i>q</i>(<i>v</i> ∣ <i>x</i>) = <span class="fraction"><span class="numerator"><i>p</i>(<i>v</i> ∣ <i>x</i>) <i>M</i><sub>G</sub>(<i>x</i>, <i>v</i>)</span><span class="denominator">∑<sub>u</sub> <i>p</i>(<i>u</i> ∣ <i>x</i>) <i>M</i><sub>G</sub>(<i>x</i>, <i>u</i>)</span></span>

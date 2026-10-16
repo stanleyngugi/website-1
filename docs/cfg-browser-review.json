@@ -1,0 +1,154 @@
+[
+  {
+    "key": "2026-08-22-lean-tactic-language-cfg-390-dark",
+    "width": 390,
+    "scrollWidth": 390,
+    "theme": "dark",
+    "images": [
+      {
+        "src": "/assets/cfg/mutation-rejection.svg",
+        "loaded": true
+      },
+      {
+        "src": "/assets/cfg/extraction.svg",
+        "loaded": true
+      }
+    ],
+    "tocLinks": 12,
+    "navigated": true,
+    "errors": []
+  },
+  {
+    "key": "2026-08-22-grammar-constrained-decoding-lean-390-dark",
+    "width": 390,
+    "scrollWidth": 390,
+    "theme": "dark",
+    "images": [
+      {
+        "src": "/assets/cfg/decoding.svg",
+        "loaded": true
+      },
+      {
+        "src": "/assets/cfg/qwen-acceptance.svg",
+        "loaded": true
+      }
+    ],
+    "tocLinks": 18,
+    "navigated": true,
+    "errors": []
+  },
+  {
+    "key": "2026-08-22-lean-tactic-language-cfg-390-light",
+    "width": 390,
+    "scrollWidth": 390,
+    "theme": "light",
+    "images": [
+      {
+        "src": "/assets/cfg/mutation-rejection.svg",
+        "loaded": true
+      },
+      {
+        "src": "/assets/cfg/extraction.svg",
+        "loaded": true
+      }
+    ],
+    "tocLinks": 12,
+    "navigated": true,
+    "errors": []
+  },
+  {
+    "key": "2026-08-22-grammar-constrained-decoding-lean-390-light",
+    "width": 390,
+    "scrollWidth": 390,
+    "theme": "light",
+    "images": [
+      {
+        "src": "/assets/cfg/decoding.svg",
+        "loaded": true
+      },
+      {
+        "src": "/assets/cfg/qwen-acceptance.svg",
+        "loaded": true
+      }
+    ],
+    "tocLinks": 18,
+    "navigated": true,
+    "errors": []
+  },
+  {
+    "key": "2026-08-22-lean-tactic-language-cfg-1280-dark",
+    "width": 1280,
+    "scrollWidth": 1280,
+    "theme": "dark",
+    "images": [
+      {
+        "src": "/assets/cfg/mutation-rejection.svg",
+        "loaded": true
+      },
+      {
+        "src": "/assets/cfg/extraction.svg",
+        "loaded": true
+      }
+    ],
+    "tocLinks": 12,
+    "navigated": true,
+    "errors": []
+  },
+  {
+    "key": "2026-08-22-grammar-constrained-decoding-lean-1280-dark",
+    "width": 1280,
+    "scrollWidth": 1280,
+    "theme": "dark",
+    "images": [
+      {
+        "src": "/assets/cfg/decoding.svg",
+        "loaded": true
+      },
+      {
+        "src": "/assets/cfg/qwen-acceptance.svg",
+        "loaded": true
+      }
+    ],
+    "tocLinks": 18,
+    "navigated": true,
+    "errors": []
+  },
+  {
+    "key": "2026-08-22-lean-tactic-language-cfg-1280-light",
+    "width": 1280,
+    "scrollWidth": 1280,
+    "theme": "light",
+    "images": [
+      {
+        "src": "/assets/cfg/mutation-rejection.svg",
+        "loaded": true
+      },
+      {
+        "src": "/assets/cfg/extraction.svg",
+        "loaded": true
+      }
+    ],
+    "tocLinks": 12,
+    "navigated": true,
+    "errors": []
+  },
+  {
+    "key": "2026-08-22-grammar-constrained-decoding-lean-1280-light",
+    "width": 1280,
+    "scrollWidth": 1280,
+    "theme": "light",
+    "images": [
+      {
+        "src": "/assets/cfg/decoding.svg",
+        "loaded": true
+      },
+      {
+        "src": "/assets/cfg/qwen-acceptance.svg",
+        "loaded": true
+      }
+    ],
+    "tocLinks": 18,
+    "navigated": true,
+    "errors": []
+  }
+]

@@ -3,52 +3,50 @@
   <channel>
     <title>Stanley Ngugi</title>
     <link>https://stanleyngugi.netlify.app/</link>
-    <description>Technical writing by Stanley Ngugi on AI for formal methods — LLM theorem proving, grammar-constrained decoding, RL environments — and machine learning research.</description>
+    <description>Technical writing by Stanley Ngugi on AI for formal methods, LLM theorem proving, grammar-constrained decoding, RL environments, and machine learning research.</description>
     <language>en-us</language>
     <atom:link href="https://stanleyngugi.netlify.app/rss.xml" rel="self" type="application/rss+xml"/>
     <item>
       <title>An RL Environment Where C Code Has to Be Proved, Not Just Tested</title>
-      <link>https://stanleyngugi.netlify.app/posts/formally-verified-c.html</link>
+      <link>https://stanleyngugi.netlify.app/posts/formally-verified-c</link>
       <guid isPermaLink="true">https://stanleyngugi.netlify.app/posts/formally-verified-c.html</guid>
       <pubDate>Sun, 13 Sep 2026 00:00:00 +0000</pubDate>
-      <description>An RL environment where agents implement C functions under fixed ACSL contracts and receive formal verification feedback and reward from Frama-C.</description>
+      <description>An RL environment where models write C functions and reward comes from proving the code satisfies a fixed specification, rather than from passing a test suite.</description>
     </item>
     <item>
-      <title>How a Grammar Changes AI-Generated Mathematical Proof Steps</title>
-      <link>https://stanleyngugi.netlify.app/posts/2026-08-22-grammar-constrained-decoding-lean.html</link>
-      <guid isPermaLink="true">https://stanleyngugi.netlify.app/posts/2026-08-22-grammar-constrained-decoding-lean.html</guid>
-      <pubDate>Sat, 22 Aug 2026 00:00:00 +0000</pubDate>
-      <description>A quick note on how the sampling works, some saved results, and some notes on how the grammars accept the models' outputs.</description>
-    </item>
-    <item>
-      <title>Building a Grammar for AI-Generated Mathematical Proof Steps</title>
-      <link>https://stanleyngugi.netlify.app/posts/2026-08-22-lean-tactic-language-cfg.html</link>
-      <guid isPermaLink="true">https://stanleyngugi.netlify.app/posts/2026-08-22-lean-tactic-language-cfg.html</guid>
-      <pubDate>Sat, 22 Aug 2026 00:00:00 +0000</pubDate>
-      <description>What a small grammar captures, what its fallback gives away, and how to measure the difference.</description>
-    </item>
-    <item>
-      <title>Taming Incidental Polysemanticity in Toy Models: How Network Training Choices Affect Feature Entanglement</title>
-      <link>https://stanleyngugi.netlify.app/posts/taming_polysemanticity.html</link>
-      <guid isPermaLink="true">https://stanleyngugi.netlify.app/posts/taming_polysemanticity.html</guid>
-      <pubDate>Sun, 19 Oct 2025 00:00:00 +0000</pubDate>
-      <description>An exploratory study using sparse autoencoders to measure how L1 vs L2 regularization, initialization, and activation choices shape polysemanticity in overcomplete networks.</description>
-    </item>
-    <item>
-      <title>Grading Mathematical Answers Without Answer Keys</title>
-      <link>https://stanleyngugi.netlify.app/posts/mathcheck-rl.html</link>
+      <title>Grading Mathematical Answers Without Precomputed Answer Keys</title>
+      <link>https://stanleyngugi.netlify.app/posts/mathcheck-rl</link>
       <guid isPermaLink="true">https://stanleyngugi.netlify.app/posts/mathcheck-rl.html</guid>
       <pubDate>Sat, 12 Sep 2026 00:00:00 +0000</pubDate>
-      <description>Formal verification of bounded submissions against frozen specifications, used as RL rewards without stored answer keys.</description>
+      <description>Formal verification of bounded mathematical submissions against frozen specifications, producing RL rewards without stored answer keys.</description>
     </item>
     <item>
       <title>Building a Lean-Backed Verifier for Bounded Mathematical Answers</title>
-      <link>https://stanleyngugi.netlify.app/posts/mathcheck-engine.html</link>
+      <link>https://stanleyngugi.netlify.app/posts/mathcheck-engine</link>
       <guid isPermaLink="true">https://stanleyngugi.netlify.app/posts/mathcheck-engine.html</guid>
       <pubDate>Sat, 12 Sep 2026 00:00:00 +0000</pubDate>
-      <description>Generated Lean programs check complete bounded specifications and record verdict scope.</description>
+      <description>A verifier that turns bounded mathematical specifications and candidate answers into Lean programs, checks the complete finite domain, and records the scope and outcome of each verdict.</description>
+    </item>
+    <item>
+      <title>How a Grammar Changes AI-Generated Mathematical Proof Steps</title>
+      <link>https://stanleyngugi.netlify.app/posts/2026-08-22-grammar-constrained-decoding-lean</link>
+      <guid isPermaLink="true">https://stanleyngugi.netlify.app/posts/2026-08-22-grammar-constrained-decoding-lean.html</guid>
+      <pubDate>Sat, 22 Aug 2026 00:00:00 +0000</pubDate>
+      <description>A study of how grammar masking keeps language-model generations inside the shape of Lean tactics, preventing malformed proof steps without confusing valid syntax with proof correctness.</description>
+    </item>
+    <item>
+      <title>Building a Grammar for AI-Generated Mathematical Proof Steps</title>
+      <link>https://stanleyngugi.netlify.app/posts/2026-08-22-lean-tactic-language-cfg</link>
+      <guid isPermaLink="true">https://stanleyngugi.netlify.app/posts/2026-08-22-lean-tactic-language-cfg.html</guid>
+      <pubDate>Sat, 22 Aug 2026 00:00:00 +0000</pubDate>
+      <description>A practical study of Lean&#x27;s tactic language: extracting tactic forms from real proofs, designing a grammar around them, and stress-testing what the grammar accepts and rejects.</description>
+    </item>
+    <item>
+      <title>Taming Incidental Polysemanticity in Toy Models: How Network Training Choices Affect Feature Entanglement</title>
+      <link>https://stanleyngugi.netlify.app/posts/taming_polysemanticity</link>
+      <guid isPermaLink="true">https://stanleyngugi.netlify.app/posts/taming_polysemanticity.html</guid>
+      <pubDate>Sun, 19 Oct 2025 00:00:00 +0000</pubDate>
+      <description>A toy-model investigation of whether feature entanglement is shaped during model training, with a ten-seed configuration comparison measured using sparse autoencoders.</description>
     </item>
   </channel>
 </rss>
-
-

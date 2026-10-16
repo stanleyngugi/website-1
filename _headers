@@ -1,0 +1,9 @@
+# Crawlers may read the archive, but its pages should not enter search results.
+/archive/*
+  X-Robots-Tag: noindex
+
+# The publishing template is not an article.
+/posts/_template
+  X-Robots-Tag: noindex
+/posts/_template.html
+  X-Robots-Tag: noindex

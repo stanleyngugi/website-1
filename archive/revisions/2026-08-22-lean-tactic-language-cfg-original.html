@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lean's Tactic Language Is Smaller Than It Looks - Stanley Ngugi</title>
+    <meta name="description" content="We built a 53-production context-free grammar for Lean 4's tactic sublanguage and measured it against every tactic line in Mathlib: 99.86% structural coverage.">
+    <meta name="robots" content="noindex, follow">
+    <meta name="author" content="Stanley Ngugi">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <meta property="og:title" content="Lean's Tactic Language Is Smaller Than It Looks">
+    <meta property="og:description" content="53 productions. 144,154 tactic lines. 99.86% coverage of Mathlib — and the methodology transfers to Rocq and Isabelle.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://stanleyngugi.netlify.app/posts/2026-08-22-lean-tactic-language-cfg.html">
+    <meta property="og:image" content="https://stanleyngugi.netlify.app/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="citation_title" content="Lean's Tactic Language Is Smaller Than It Looks">
+    <meta name="citation_author" content="Ngugi, Stanley">
+    <meta name="citation_publication_date" content="2026-08-22">
+    <meta name="citation_online_date" content="2026-08-22">
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('theme');
+                if (!t) t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', t);
+            } catch (e) {}
+        })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-inner">
+                <a href="/" class="logo">stanley<span>&gt;</span></a>
+                <button class="theme-btn" aria-label="Toggle theme">
+                    <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                    <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                </button>
+            </div>
+        </header>
+
+        <main>
+            <a href="/" class="back-link">← back home</a>
+
+            <article class="prose">
+<p class="tldr-box">Historical version, retained for transparency. <a href="/posts/2026-08-22-lean-tactic-language-cfg.html">Read the expanded and corrected article</a>.</p>
+                <header class="article-header">
+                    <h1>Lean's Tactic Language Is Smaller Than It Looks</h1>
+                    <div class="entry-date">August 22, 2026 · 11 min read · formal methods, LLMs, constrained decoding · <a href="https://github.com/stanleyngugi/lean-tactic-research">code ↗</a></div>
+                </header>
+
+                <div class="tldr-box">
+                    <div class="tldr-label">TL;DR</div>
+                    <p>We measured the entire Mathlib corpus against a 53-production grammar. 99.86% of it fit.</p>
+                </div>
+
+                <h2>The folklore problem</h2>
+
+                <p>Ask around about applying formal-grammar constraints to theorem provers and you'll hear the same objection: proof-assistant tactic languages are programming languages — unbounded, dynamically extensible, full of arbitrary term syntax. You can't write a grammar for that. And even if you could, it would have thousands of productions and wouldn't be useful for anything.</p>
+
+                <p>This objection sounds right and is almost exactly backwards. The question was never "how big is Lean's <em>grammar</em>?" (infinite — it's a macro language with a metaprogramming escape hatch, by design). The question is: <strong>how big is the subset of Lean's tactic language that people actually use?</strong> That's an empirical question, and empiricism is cheap: Mathlib is public, it's huge, and it's written by the most expert tactic users on earth.</p>
+
+                <p>So we built a context-free grammar for the Lean 4 tactic sublanguage from scratch, measured it against every tactic line in all of Mathlib, and then checked whether the same methodology transfers to other proof assistants. This post is about what the corpus taught us. (<a href="/posts/2026-08-22-grammar-constrained-decoding-lean.html">A companion post</a> applies this grammar as a decoder constraint and measures what happens; this one is about its construction and comprehensiveness.)</p>
+
+                <h2>The design: copy Lean's own parser, not a textbook</h2>
+
+                <p>Before writing a single production, there was a design decision to make, and Lean itself made it for us. Lean 4's tactic parser is <strong>keyword-dispatched</strong>: the parser looks at the leading identifier of each command and hands off to that tactic's own syntax declaration (<code>rw</code> goes one way, <code>simp</code> another). Everything <em>after</em> the keyword is mostly arbitrary term syntax — hypotheses, lemma names, <code>using</code> clauses — which no context-free grammar can meaningfully resolve, because terms aren't parsed in isolation; they're <em>elaborated</em> against the proof state (unification, typeclass synthesis, implicit arguments). Term syntax isn't context-free, and pretending otherwise would produce a grammar that's simultaneously enormous and wrong.</p>
+
+                <p>So the faithful move is to mirror Lean's dispatch structure rather than model the whole language:</p>
+
+                <ul>
+                    <li><strong>Shape</strong>: every production is <code>KEYWORD ARGS</code> — named productions carry explicit shape where a tactic has fixed syntax (<code>rfl</code> takes nothing, <code>simp</code> takes optional args, <code>convert!</code> requires them), and everything else falls into <code>ARGS</code>, a permissive catch-all ≈ rest-of-line. Permissiveness here is principled, not laziness: term-level content will be judged by the elaborator anyway, and a tactic grammar's job is only to route on the keyword and confirm the shape.</li>
+                    <li><strong>Recursion exactly where nesting actually occurs</strong>. Scan real proofs and tactic-level recursion happens in precisely two places — <code>·</code> focus bullets and <code>| pattern =&gt; tac</code> case arms inside <code>induction ... with</code>. Two recursive productions (<code>focus_tac</code>, <code>case_arm_tac</code>); everything else is flat. A grammar textbook would give you a dozen nesting constructs; the corpus gives you two.</li>
+                    <li><strong>A generic <code>IDENT ARGS?</code> catch-all as final alternative</strong>, lowest priority. This mirrors a design fact about Lean itself: the tactic namespace is <em>user-extensible</em> via macros. No fixed grammar can enumerate all keywords that might exist in some file importing some library — so unknown keywords fall through gracefully instead of failing. The catch-all isn't a hole in the grammar; it's the grammar's model of extensibility.</li>
+                </ul>
+
+                <p>This design descended from an original architecture thesis about LLM proving pipelines (§10.1 of that document sketched exactly this <code>KEYWORD ARGS</code> shape); what we did next was test whether it survives contact with the entire corpus.</p>
+
+                <h2>Counting is harder than it looks: two extraction bugs</h2>
+
+                <p>First you need the corpus: every real tactic line in Mathlib. Shallow-cloned <code>leanprover-community/mathlib4</code> in full — <strong>8,302 files, 464,950 lines</strong> — and wrote an extractor to pull out logical tactic lines.</p>
+
+                <p>The naive version fails invisibly. Tactics wrap across physical lines, so you need continuation merging. The obvious rule — merge lines with unbalanced brackets — sounds fine and is wrong. When we ran it, our first full-corpus pass reported a pile of parse failures; hand-auditing them showed <strong>51% were not grammar gaps at all but artificial line-splits</strong>: continuations like</p>
+
+                <pre><code>  rw [mul_comm]
+    (by norm_num)</code></pre>
+
+                <p>where the second line has no unclosed bracket but is still part of the same tactic under Lean's actual indentation rule (<code>colGt</code>). Bracket balance is one continuation mechanism; indentation-awareness is a second, independent one. You need both. Fixing the merger collapsed the candidate set from an inflated ~229,560 lines to <strong>144,154 genuinely distinct logical tactic lines</strong>.</p>
+
+                <p>The second bug was real too, and more interesting: 36% of early failures traced to a single missing production — <code>| pattern =&gt; tac</code> case arms inside <code>match</code>/<code>induction ... with</code>. One recursive production (<code>case_arm_tac</code>) eliminated them wholesale. Iterating against failure buckets, rather than guessing at tactics in the abstract, turned out to be the whole game: each round of <em>hand-auditing what actually failed</em> bought far more coverage than any amount of upfront language theory.</p>
+
+                <h2>Fifty-three productions</h2>
+
+                <p>The design above, iterated against real failure buckets until it stopped improving, produced a grammar small enough to print on one screen: 53 named productions plus the catch-all and the two recursive forms. Measured against the full corrected corpus:</p>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>count</th>
+                                <th>%</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>named production match</td>
+                                <td>133,224</td>
+                                <td>92.4%</td>
+                            </tr>
+                            <tr>
+                                <td>generic fallback</td>
+                                <td>10,725</td>
+                                <td>7.4%</td>
+                            </tr>
+                            <tr>
+                                <td>true parse failure</td>
+                                <td>205</td>
+                                <td><strong>0.14%</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>Every one of the 205 residual failures was hand-audited. Not one was a missing tactic keyword. They split into known extraction edge cases (48 lone <code>·</code> bullets with nothing on their merged line, 45 anonymous-constructor literals in term mode, 26 compiler directives like <code>#adaptation_note</code>, 15 docstring fragments that leaked past comment-stripping) plus a miscellaneous tail. <strong>Structural coverage: 99.86% of everything Mathlib writes, with 53 productions.</strong></p>
+
+                <h2>Three more measurements, because one isn't evidence</h2>
+
+                <p>A single number from a single script written by its own author is a demo, not a finding. So we triangulated the underlying claim — that tactic usage is extraordinarily concentrated — four independent ways:</p>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>measurement</th>
+                                <th>source</th>
+                                <th>top-20 keyword share</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>9-file pilot (~6,700 lines)</td>
+                                <td>ours</td>
+                                <td>87.0%</td>
+                            </tr>
+                            <tr>
+                                <td>full Mathlib (144k lines)</td>
+                                <td>ours</td>
+                                <td>84.9%</td>
+                            </tr>
+                            <tr>
+                                <td>current Mathlib re-run, months later</td>
+                                <td>ours</td>
+                                <td>82.4%</td>
+                            </tr>
+                            <tr>
+                                <td>external citation (<a href="https://openreview.net/forum?id=sjLWmLeJ6R">Lean4trace</a>, ICML 2024)</td>
+                                <td>not ours</td>
+                                <td>~83%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>Four measurements, three methodologies, tight agreement. Concentration isn't an artifact of our extractor; it's a property of the ecosystem.</p>
+
+                <p>And does the grammar generalize beyond human-written code to model output? We took 14 real theorem statements, asked a frontier model for first tactics, and classified: <strong>93% named, 7% fallback, zero outside the grammar</strong>. Consistent with the human baseline (small n, no significance claimed — but no divergence either).</p>
+
+                <h2>The inversion: when you find a gap, grow the language, not the grammar</h2>
+
+                <p>Traditional constrained-decoding wisdom says: found a tactic your grammar can't express? Add productions until it can. There's an inversion worth considering, because Lean makes it unusually cheap: <strong>add a macro instead.</strong></p>
+
+                <pre><code>macro "solve_positivity" : tactic =&gt; `(tactic| positivity)
+macro "discharge_linear" e1:term:max e2:term:max : tactic =&gt;
+  `(tactic| linarith [$e1, $e2])</code></pre>
+
+                <p>One line moves <code>positivity</code> or a curried <code>linarith</code> call inside the grammar's keyword-dispatch world forever, verified at parse time by the real elaborator. We compiled a bridge suite against genuine from-source-built Mathlib tactics (exit code 0 across <code>positivity</code>, <code>gcongr</code>, nested-focus cases), and caught a real language lesson doing it: bare two-term macro arguments greedily swallow application syntax — <code>combine_facts hp hq</code> parses as <em>one</em> term, <code>hp</code> applied to <code>hq</code> — and the fix is precedence annotations (<code>term:max</code>) per slot. The compiler's error (<code>Function expected at hp</code>) pinpointed it immediately. Write macros with explicit precedence or they will lie to you.</p>
+
+                <p>This reframes grammar maintenance: rare-but-real tactics don't need new productions, they need a one-time, kernel-checked promotion into keyword form. Whether that's cleaner than growing the grammar is a taste decision; that it's <em>available</em> changes the maintenance math.</p>
+
+                <h2>Does this transfer? Two other proof assistants say yes</h2>
+
+                <p>If concentration were a Lean quirk it would still be interesting but narrower, so we reran the methodology elsewhere — briefly, because the results don't need much space.</p>
+
+                <p><strong>Rocq (Coq)</strong>: <code>math-comp</code>, 147 files, 150k lines, extracted via Rocq's literal <code>Proof.</code>/<code>Qed.</code> delimiters (a <em>more</em> reliable boundary than Lean's inferred indentation blocks). Top-20 leading tokens covered <strong>98.0%</strong> of 74,370 tactic units — <em>more</em> concentrated than Lean, plausibly because SSReflect's design philosophy is a narrow core tactic set carrying rich inline modifiers — and a 27-production grammar scored <strong>98.81% on its very first pass</strong>, versus Lean's 73.8% first pass. One bonus finding from building tooling on both: Rocq's <code>Tactic Notation</code> argument kinds (<code>constr(e1)</code>, <code>ident(x)</code>) explicitly delimit each slot as its own nonterminal, so the macro-argument greediness bug described above simply cannot occur there.</p>
+
+                <p><strong>Isabelle</strong>: the kernel build was blocked for us (its component repository was unreachable), but the grammar work proceeded against real AFP source with position-based <code>proof</code>/<code>qed</code> nesting extraction: <strong>95.47%, 26 productions</strong> — lower for a diagnosed reason (a third continuation mechanism, wrapped fact-reference lists like <code>using X[of ...]</code>, same lesson class as Lean's colGt fix, not yet applied). This also corrected our own starting misconception: Isar's core proof language has an explicitly documented grammar; it is not somehow less grammar-tractable than its peers.</p>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>Lean 4</th>
+                                <th>Rocq</th>
+                                <th>Isabelle</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>productions</td>
+                                <td>53</td>
+                                <td>27</td>
+                                <td>26</td>
+                            </tr>
+                            <tr>
+                                <td>structural coverage</td>
+                                <td>99.86%</td>
+                                <td>98.81%</td>
+                                <td>95.47%</td>
+                            </tr>
+                            <tr>
+                                <td>extraction boundary</td>
+                                <td><code>by</code>-block indentation + colGt</td>
+                                <td>literal <code>Proof.</code>/<code>Qed.</code></td>
+                                <td><code>proof</code>/<code>qed</code> nesting depth</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>Three systems, one methodology, same shape of answer: tactic usage concentrates hard everywhere we looked.</p>
+
+                <h2>What coverage does not tell you</h2>
+
+                <p>One caveat before anyone runs off citing 99.86%, and it's the reason this post ends where it does.</p>
+
+                <p>Coverage of real text is not constraint strength. Our grammar achieves 99.86% <em>because</em> it is permissive by design — the catch-all admits essentially anything identifier-led, and <code>ARGS</code> swallows arbitrary terms. Accepting nearly everything real mathematicians wrote says little about how much garbage it rejects. Those are different measurements, and the second one is what matters if you want to put the grammar in a decoder's sampling loop as a logit mask.</p>
+
+                <p>We did exactly that. Results — including what fraction of a modern model's tokens die at the parser without the mask, what happens to hallucinated lemma names (spoiler: nothing good, and instructively so), and two infrastructure bugs that silently unmask "constrained" decoding — <a href="/posts/2026-08-22-grammar-constrained-decoding-lean.html">are in the companion post</a>.</p>
+
+                <h2>Addendum: we measured constraint strength the same day</h2>
+
+                <p>This post deliberately declines to claim constraint strength. It took a few hours to measure, so here it is. We mutated 5,000 real tactic lines into six corruption classes and scored each against the same grammar:</p>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>corruption class</th>
+                                <th>rejected</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>truncation at random point</td>
+                                <td><strong>0.1%</strong></td>
+                            </tr>
+                            <tr>
+                                <td>English-word lead (prose start)</td>
+                                <td><strong>0.0%</strong></td>
+                            </tr>
+                            <tr>
+                                <td>leading keyword swapped for a <em>different real tactic</em></td>
+                                <td><strong>0.0%</strong></td>
+                            </tr>
+                            <tr>
+                                <td>argument tokens shuffled</td>
+                                <td><strong>0.1%</strong></td>
+                            </tr>
+                            <tr>
+                                <td>full token shuffle</td>
+                                <td>31.0%</td>
+                            </tr>
+                            <tr>
+                                <td>random identifier soup</td>
+                                <td><strong>0.0%</strong></td>
+                            </tr>
+                            <tr>
+                                <td><strong>combined</strong></td>
+                                <td><strong>3.5%</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>Read alongside the coverage number, this pins down what the grammar actually is: not a syntax gate but a <strong>category gate</strong>. It enforces that a generation is a tactic-<em>shaped event</em> — a keyword-led line — and essentially nothing more. Which turns out to be precisely the failure mode that matters for modern models: they rarely emit subtly-broken tactics, but they frequently emit prose, markdown, or meta-commentary <em>instead of</em> tactics. The companion post's yield numbers are unchanged by this (same oracle on both arms); its interpretation just gets sharper — constrained decoding forces every generation into the one category the kernel can adjudicate.</p>
+
+                <h2>References</h2>
+
+                <div class="refs">
+                    <p>Nesterov, V., Kapushev, Y., &amp; Burtsev, M. (2024). <a href="https://openreview.net/forum?id=sjLWmLeJ6R">Lean4trace: Data Augmentation for Neural Theorem Proving in Lean</a>. ICML 2024 Workshop on AI for Mathematics.</p>
+                    <p>Lean community. <a href="https://github.com/leanprover-community/mathlib4">Mathlib: The Lean 4 mathematical library</a>.</p>
+                    <p>Lean community. <a href="https://github.com/leanprover/lean4">Lean 4</a>: The Lean Theorem Prover.</p>
+                </div>
+
+                <div class="cite-box">
+                    <div class="cite-label">Cite this post</div>
+                    <pre><code>@misc{ngugi2026lean,
+  title        = {Lean's Tactic Language Is Smaller Than It Looks},
+  author       = {Ngugi, Stanley},
+  year         = {2026},
+  howpublished = {\url{https://stanleyngugi.netlify.app/posts/2026-08-22-lean-tactic-language-cfg.html}},
+  note         = {Companion code: \url{https://github.com/stanleyngugi/lean-tactic-research}}
+}</code></pre>
+                </div>
+
+                <hr style="margin: 48px 0;">
+
+                <p style="font-size: 15px;">
+                    <em>Artifacts: <a href="https://github.com/stanleyngugi/lean-tactic-research">github.com/stanleyngugi/lean-tactic-research</a> →
+                    <code>post1-tactic-cfg/</code> (grammar definition, extractor, mutation battery) and <code>data/</code>.
+                    Corpus: mathlib4 @ current master, batteries, math-comp, AFP excerpts.</em>
+                </p>
+
+                <p style="margin-top: 40px;">
+                    <em>If you build on this, I'd love to hear about it —
+                    sngugi.research@gmail.com.</em>
+                </p>
+            </article>
+        </main>
+
+        <footer>
+            © 2026 Stanley Ngugi · <a href="https://github.com/stanleyngugi/lean-tactic-research">code</a>
+        </footer>
+    </div>
+
+    <script src="/main.js"></script>
+</body>
+</html>

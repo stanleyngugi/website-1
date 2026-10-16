@@ -1,5 +1,4 @@
 User-agent: *
 Allow: /
-Disallow: /archive/
 
 Sitemap: https://stanleyngugi.netlify.app/sitemap.xml

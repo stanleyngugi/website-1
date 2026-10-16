@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Taming Incidental Polysemanticity in Toy Models - Stanley Ngugi</title>
-    <meta name="description" content="An exploratory study showing that L2 regularization reduces polysemanticity by 17.9% compared to L1 in overcomplete toy models — challenging the conventional wisdom that sparse equals interpretable.">
+    <meta name="description" content="A toy-model investigation of whether feature entanglement is shaped during model training, with a ten-seed configuration comparison measured using sparse autoencoders.">
     <meta name="author" content="Stanley Ngugi">
     <meta property="og:title" content="Taming Incidental Polysemanticity in Toy Models">
-    <meta property="og:description" content="L2 regularization reduces polysemanticity by 17.9% vs L1 in overcomplete toy models — challenging the conventional wisdom that sparse equals interpretable.">
+    <meta property="og:description" content="A toy-model investigation of whether feature entanglement is shaped during model training, with a ten-seed configuration comparison measured using sparse autoencoders.">
     <meta property="og:type" content="article">
-    <meta property="og:url" content="https://stanleyngugi.netlify.app/posts/taming_polysemanticity.html">
+    <meta property="og:url" content="https://stanleyngugi.netlify.app/posts/taming_polysemanticity">
     <meta property="og:image" content="https://stanleyngugi.netlify.app/og-image.png">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="citation_title" content="Taming Incidental Polysemanticity in Toy Models: How Network Training Choices Affect Feature Entanglement">
@@ -30,11 +30,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/styles.css">
-    <style>
-        .article-header .entry-date { white-space: normal; }
-        .prose table td { white-space: nowrap; }
-        .prose sub, .prose sup { line-height: 0; }
-    </style>
+<link rel="canonical" href="https://stanleyngugi.netlify.app/posts/taming_polysemanticity">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "@id": "https://stanleyngugi.netlify.app/posts/taming_polysemanticity#article", "headline": "Taming Incidental Polysemanticity in Toy Models: How Network Training Choices Affect Feature Entanglement", "description": "A toy-model investigation of whether feature entanglement is shaped during model training, with a ten-seed configuration comparison measured using sparse autoencoders.", "author": {"@type": "Person", "@id": "https://stanleyngugi.netlify.app/#person", "name": "Stanley Ngugi", "url": "https://stanleyngugi.netlify.app/", "sameAs": ["https://github.com/stanleyngugi"]}, "url": "https://stanleyngugi.netlify.app/posts/taming_polysemanticity", "mainEntityOfPage": "https://stanleyngugi.netlify.app/posts/taming_polysemanticity", "datePublished": "2025-10-19", "dateModified": "2026-10-06"}</script>
+
 </head>
 <body>
     <div class="container">
@@ -54,11 +52,13 @@
             <article class="prose">
                 <header class="article-header">
                     <h1>Taming Incidental Polysemanticity in Toy Models: How Network Training Choices Affect Feature Entanglement</h1>
-                    <div class="entry-date">October 19, 2025 · 25 min read · interpretability, sparse autoencoders · <a href="https://github.com/stanleyngugi/taming_polysemanticity">code ↗</a></div>
+                    <div class="entry-date">By <a href="/" rel="author">Stanley Ngugi</a> · 25 min read · interpretability, sparse autoencoders · <a href="https://github.com/stanleyngugi/taming_polysemanticity">code ↗</a></div>
                 </header>
 
-<div class="tldr-box"><div class="tldr-label">TL;DR</div><p>I ran some experiments on toy models to test whether there are factors during a network&#39;s training that influence how polysemantic its representations end up being (when probed using SAEs). I found that training with L2 regularization leads to 17.9% less polysemantic representations than training with L1 (Interference of 7.14 vs. 8.70, t=2.8, p&lt;0.01). This is in a toy setting and has lots of caveats, but was an interesting thing to look at for getting better mechanistic understandings of when polysemanticity appears.</p>
+<div class="tldr-box"><div class="tldr-label">TL;DR</div><p>I ran some experiments on toy models to test whether there are factors during a network&#39;s training that influence how polysemantic its representations end up being (when probed using SAEs). The L2/GELU configuration had 17.9% lower measured Interference than the L1/ReLU configuration (Interference of 7.14 vs. 8.70, t=2.8). This is in a toy setting and has lots of caveats, but was an interesting thing to look at for getting better mechanistic understandings of when polysemanticity appears.</p>
 </div>
+<div class="tldr-box"><div class="tldr-label">Retrospective note</div>
+<p>This exploratory study compared full training configurations rather than isolating every factor. Because the headline L1/ReLU and L2/GELU settings differ in both regularization and activation, the 17.9% result is best read as a configuration-level observation, rather than a controlled estimate of the effect of L2 alone. The proposed mechanism remains a hypothesis. The original significance claims need rechecking: for a two-sided t-test, t(16) = 2.8 gives p ≈ 0.013, while t(16) = 2.1 gives p ≈ 0.052. Those do not match the originally stated p &lt; 0.01 and p = 0.04. The ten-seed description and reported degrees of freedom also need reconciliation. This revision retains the descriptive results without treating the historical significance claims as validated.</p></div>
 <h2>Motivation</h2>
 <p>Polysemanticity is a big problem for MI, and a big concern for safety. Historically it has been understood as a consequence of superposition (i.e. if the network is trying to represent more features than it has dimensions to represent them on). But more recently it has been found that polysemanticity can also appear incidentally, even in overcapacity settings, due to a variety of factors during training (Lecomte et al. 2023). Some examples of these are regularization (in particular things that induce winner-take-all dynamics) and noise (which can induce chance correlations between features and neurons).</p>
 <p>Whilst there have been lots of papers trying to improve the ability of SAEs to decompose features (TopK SAEs, JumpReLU SAEs, Gated SAEs etc.), much less work has been done on whether factors during the training of a network affect how well SAEs can decompose their representations (i.e. how entangled / polysemantic the features in those representations are). This is important, because if a network is trained in a way that induces a highly polysemantic representation in its activations, then even the best SAE might struggle to decompose it.</p>
@@ -183,7 +183,7 @@
 <td>+0.5%</td>
 </tr>
 </tbody></table></div>
-<p>I observed a substantial decrease in the polysemanticity of the features when I used L2 instead of L1 regularization (t(16) = 2.1, p = 0.04 for MACS and t(16) = 2.8, p &lt; 0.01 for Interference, Cohen’s d ~1.5–1.6). This is a highly statistically significant decrease, with a very large effect size.</p>
+<p>I observed lower measured feature entanglement in the L2/GELU configuration than in the L1/ReLU configuration (t(16) = 2.1 for MACS and t(16) = 2.8 for Interference, Cohen’s d ~1.5–1.6). These are descriptive results from configurations that differ in both regularization and activation; the original statistical analysis needs rechecking as noted above.</p>
 <p>What’s more, the drop in Interference was achieved while maintaining a similar amount of sparsity, as shown by the L0 norm of the activations. This means that it’s not just that the L2-regularized network has more features overall, but that the features themselves are less polysemantic. Moreover, I observed a huge drop in Train and Validation MSEs, meaning that the network is substantially better at solving the task. The increase in the SAE MSE is likely due to there being more features for it to reconstruct.</p>
 
 <h3>Result table for all ablations</h3>
@@ -301,7 +301,7 @@
 </tr>
 </tbody></table></div>
 <p>L2 consistently has lower Interference (6.4 to 8.4) than L1 (8.1 to 9.1)</p>
-<p>There seems to be some synergy between Orthogonal and L2+GELU (Config #5, 25.4% lower Interference). Overall, the maximum mitigation is achieved with Config #8, which reduces Interference by 26.8% (t=2.8, p&lt;0.01)</p>
+<p>There seems to be some synergy between Orthogonal and L2+GELU (Config #5, 25.4% lower Interference). Overall, the maximum mitigation is achieved with Config #8, which reduces Interference by 26.8% (t=2.8)</p>
 <p>Surprisingly, while positive kurtosis increases polysemanticity in combination with L1 (+4.7%, config #3), it seems to reduce polysemanticity in combination with L2 (-26.8%, config #8)</p>
 
 <h2>Analysis: Why does L2 lead to lower polysemanticity?</h2>
@@ -336,14 +336,14 @@
 <li>If you&#39;re noticing bistability (high variance between SAEs trained with different seeds), this could be a sign of antagonistic training dynamics.</li>
 </ul>
 <h3>Comparison to Existing Work</h3>
-<p>Lecomte et al. 2023 predicts that L1 regularization will lead to more incidental polysemanticity due to the winner-take-all dynamics, but as far as I&#39;m aware this is the first time anyone has trained the exact same network twice, once with an L1 and once with an L2, to directly compare and quantify this effect (-17.9% Interference, p &lt; 0.01).</p>
+<p>Lecomte et al. 2023 predicts that L1 regularization will lead to more incidental polysemanticity due to the winner-take-all dynamics, but as far as I&#39;m aware this is the first time anyone has trained the exact same network twice, once with an L1 and once with an L2, to directly compare and quantify this effect (-17.9% Interference).</p>
 <p>Anthropic&#39;s work on SAEs (Bricken et al. 2023, Templeton et al. 2024) uses an L1 penalty, which seems at odds with my findings about fighting polysemanticity. However, they&#39;re also using more advanced SAE architectures like JumpReLUs and TopK SAEs, which may resolve the L1 regularization paradox in a different way. It&#39;d be interesting to directly compare.</p>
 <p>For this work, I only used vanilla LeakyReLU SAEs. There are a number of new SAE techniques (TopK, JumpReLU, Gated, etc) that are able to reconstruct the latent space better at the same level of sparsity. It&#39;d be interesting to see how training a network with an L2 compares to using these SAE methods.</p>
 <h3>Limitations</h3>
 <p>This is obviously a toy model, and there are a number of limitations you should be wary of:</p>
 <p>The data is synthetic and I specifically designed it to have correlated features. In a real LLM you can&#39;t just turn up the correlations knob, but this may be applicable in settings where you&#39;d expect a lot of correlated features (like the words &quot;car&quot; and &quot;road&quot;) or if the correlations appear somewhat accidentally during training.</p>
 <p>I use a lot of overcapacity in my SAEs (16 latents to represent 8 features, which is 2x overcomplete, and the hidden layer has 12 dimensions which is also larger than the 8 features). This may not be as much of an issue in practice, since when people train SAEs on LLMs they&#39;ll usually make them 4-8x more complete.</p>
-<p>It&#39;s unclear if this applies to LLMs. I would love if someone tested this! Given that LLMs are trained with L1 regularization (weight decay) and this mechanism seems pretty basic, I&#39;d expect it to, but it&#39;d be good to see.</p>
+<p>It&#39;s unclear if this applies to LLMs. I would love if someone tested this! Weight decay is not L1 regularization, so that does not establish a direct connection to this toy-model comparison. Whether the proposed mechanism applies to LLMs needs a separate experiment.</p>
 <p>Some caveats: I use a somewhat silly way of decaying the importance of features (0.9<sup>i</sup>), real models probably have a more power law like distribution of feature importance; I don&#39;t look at whether the features are qualitatively better, I just use a bunch of proxies for polysemanticity (Interference, MACS); I use a vanilla SAE architecture (LeakyReLU), rather than the current state-of-the-art (TopK / JumpReLU / Gated); the metric Calibrated_MACS is pretty noisy (std 0.14 and mean ~0.5, so it&#39;s not much better than chance at telling the difference between features), I could probably improve it by sampling more than 200 permutations, but that&#39;s a lot of vectors in a 16D space, so it&#39;d need some thought as to how to do it.</p>
 <h3>Things I&#39;m not claiming</h3>
 <ul>
@@ -354,7 +354,7 @@
 </ul>
 <h3>Things I am claiming:</h3>
 <ul>
-<li>That training the network with L2 regularization seems to reduce polysemanticity in this toy model, relative to L1</li>
+<li>That the L2/GELU configuration had lower measured Interference than the L1/ReLU configuration in this toy model</li>
 <li>That the mechanism (WTA vs distributed) seems to be in line with my theory</li>
 <li>That it&#39;s worth looking into this more on real models</li>
 </ul>
@@ -374,8 +374,8 @@
 <li>How do the effects of L1/L2 regularization interact with the (probability) distribution of feature importances (in real models, feature importances are likely to be power-law distributed)?</li>
 </ul>
 <h2>Conclusion</h2>
-<p>In this post I&#39;ve explored how training conditions affect the polysemanticity of learned representations in toy models. Specifically, I&#39;ve demonstrated that L2 regularized networks have 17.9% less entanglement between features compared to L1 regularized networks (t = 2.8, p &lt; 0.01). This is counterintuitive because in the SAE community there&#39;s an implicit assumption that &quot;sparse = more interpretable&quot;, especially in the overcomplete setting.</p>
-<p>L1 regularization induces winner-take-all dynamics due to its discontinuous gradients, which leads to a small number of neurons becoming polysemantic. L2 regularization encourages a more distributed representation due to its smooth gradients, which means a large number of neurons end up each specialised to a single feature. Orthogonal weight initialisation synergises with L2 regularization (by keeping the representation distributed), and antagonises L1 regularization (by preventing WTA dynamics).</p>
+<p>In this post I&#39;ve explored how training conditions affect the polysemanticity of learned representations in toy models. Specifically, I observed 17.9% lower Interference in the L2/GELU configuration than in the L1/ReLU configuration (t = 2.8). This is counterintuitive because in the SAE community there&#39;s an implicit assumption that &quot;sparse = more interpretable&quot;, especially in the overcomplete setting.</p>
+<p>My proposed explanation is that L1 can encourage winner-take-all dynamics, while L2 can encourage a more distributed representation. These experiments motivate that explanation but do not isolate regularization from activation or establish a causal mechanism. Orthogonal weight initialisation synergises with L2 regularization (by keeping the representation distributed), and antagonises L1 regularization (by preventing WTA dynamics).</p>
 <p>It&#39;s unclear whether these findings generalise to real LLMs, as there are a lot of arbitrary choices I&#39;ve made in constructing the toy model (e.g. the level of overcapacity, the type of data, etc.). However, I think the mechanistic understanding I&#39;ve developed here (WTA dynamics due to L1, smooth activations due to L2, interactions between weight initialisation and regularisation, etc.) could be leveraged by future researchers to find better ways of training toy models (and maybe LLMs) to be less polysemantic.</p>
 <p>I think a combination of (1) better SAE architectures (e.g. TopK SAEs, JumpReLU activation, etc.) to decompose polysemantic representations, and (2) better model training techniques to minimise polysemanticity in the first place, are both needed to make progress in the field of mechanistic interpretability.</p>
 <p>If anyone is interested in exploring this further, all the code, data, etc. used for this post is available here: <a href="https://github.com/stanleyngugi/taming_polysemanticity">github.com/stanleyngugi/taming_polysemanticity</a>. Would love to hear any feedback on this post!</p>
@@ -449,7 +449,7 @@
   title        = {Taming Incidental Polysemanticity in Toy Models: How Network Training Choices Affect Feature Entanglement},
   author       = {Ngugi, Stanley},
   year         = {2025},
-  howpublished = {\url{https://stanleyngugi.netlify.app/posts/taming_polysemanticity.html}},
+  howpublished = {\url{https://stanleyngugi.netlify.app/posts/taming_polysemanticity}},
   note         = {Code: \url{https://github.com/stanleyngugi/taming_polysemanticity}}
 }</code></pre>
                 </div>
@@ -464,4 +464,3 @@
     <script src="/main.js"></script>
 </body>
 </html>
-

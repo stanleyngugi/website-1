@@ -1,6 +1,14 @@
-/posts/* /archive/posts/:splat 200
-/files/* /archive/files/:splat 200
-/research.html / 301
+# Retired overview pages now lead to the corresponding homepage section.
+/research /#earlier-research 301
+/research/ /#earlier-research 301
+/research.html /#earlier-research 301
+/posts /#selected-writing 301
+/posts/ /#selected-writing 301
+/posts.html /#selected-writing 301
+/about / 301
+/about/ / 301
 /about.html / 301
 
-/posts.html / 301
+# Existing current article files take precedence. Old essays keep an archive URL.
+/posts/* /archive/posts/:splat 301
+/files/* /archive/files/:splat 301

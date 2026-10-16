@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stanley Ngugi</title>
-    <meta name="description" content="Stanley Ngugi builds AI for formal methods — LLM theorem proving, grammar-constrained decoding, and RL environments. Research and technical writing from Nairobi, Kenya.">
-    <meta property="og:title" content="Stanley Ngugi">
-    <meta property="og:description" content="Building AI for formal methods: LLM theorem proving, grammar-constrained decoding, RL environments.">
+    <title>Stanley Ngugi | RL Environments and Formal Verification</title>
+    <meta name="description" content="Stanley Ngugi is an independent AI researcher working on post-training with reinforcement learning and formal verification for mathematical reasoning and code.">
+    <meta property="og:title" content="Stanley Ngugi | RL Environments and Formal Verification">
+    <meta property="og:description" content="Stanley Ngugi is an independent AI researcher working on post-training with reinforcement learning and formal verification for mathematical reasoning and code.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://stanleyngugi.netlify.app/">
     <meta property="og:image" content="https://stanleyngugi.netlify.app/og-image.png">
@@ -26,6 +26,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/styles.css">
+    <meta name="author" content="Stanley Ngugi">
+    <meta name="twitter:title" content="Stanley Ngugi | RL Environments and Formal Verification">
+    <meta name="twitter:description" content="Stanley Ngugi is an independent AI researcher working on post-training with reinforcement learning and formal verification for mathematical reasoning and code.">
+    <link rel="canonical" href="https://stanleyngugi.netlify.app/">
+    <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebSite", "@id": "https://stanleyngugi.netlify.app/#website", "url": "https://stanleyngugi.netlify.app/", "name": "Stanley Ngugi", "description": "Stanley Ngugi is an independent AI researcher working on post-training with reinforcement learning and formal verification for mathematical reasoning and code.", "publisher": {"@id": "https://stanleyngugi.netlify.app/#person"}}, {"@type": "Person", "@id": "https://stanleyngugi.netlify.app/#person", "name": "Stanley Ngugi", "url": "https://stanleyngugi.netlify.app/", "sameAs": ["https://github.com/stanleyngugi"], "description": "Stanley Ngugi is an independent AI researcher working on post-training with reinforcement learning and formal verification for mathematical reasoning and code."}, {"@type": "ProfilePage", "@id": "https://stanleyngugi.netlify.app/#profile", "url": "https://stanleyngugi.netlify.app/", "name": "Stanley Ngugi | RL Environments and Formal Verification", "mainEntity": {"@id": "https://stanleyngugi.netlify.app/#person"}, "isPartOf": {"@id": "https://stanleyngugi.netlify.app/#website"}}]}</script>
 </head>
 <body>
     <div class="container">
@@ -33,7 +38,7 @@
             <div class="header-inner">
                 <a href="/" class="logo">stanley<span>&gt;</span></a>
                 <div style="display: flex; align-items: center;">
-                    <a href="/cv.html" class="nav-cv">cv</a>
+                    <a href="/cv" class="nav-cv">cv</a>
                     <button class="theme-btn" aria-label="Toggle theme">
                         <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
                         <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
@@ -44,106 +49,118 @@
 
         <main>
             <div class="intro">
-                <h1>I build AI for formal methods.</h1>
+                <p class="intro-name">Stanley Ngugi</p>
+                <h1>I build reinforcement-learning environments and tools for formal reasoning.</h1>
                 <p>
-                    Researcher in Nairobi, Kenya working at the intersection of LLMs and theorem
-                    proving: grammar-constrained decoding, kernel-in-the-loop training, and RL
-                    environments where every generated proof step reaches the judge. Background in
-                    mechanistic interpretability — I like knowing what the model is doing on the inside.
+                    I'm Stanley, a 20-year-old self-taught independent AI researcher working on
+                    reinforcement learning for language model post-training. I'm particularly
+                    interested in mathematical reasoning and coding, and in building RL
+                    environments with verifiable rewards for these tasks.
                 </p>
                 <div class="links-row">
-                    <a href="/cv.html" class="pill-primary">CV</a>
-                    <span class="copy-email" id="copy-email" title="click to copy">sngugi.research@gmail.com</span>
-                    <a href="https://github.com/stanleyngugi">github</a>
+                    <a href="/cv" class="pill-primary">CV</a>
+                    <span class="email-contact">
+                        <a href="mailto:sngugi.research@gmail.com">sngugi.research@gmail.com</a>
+                        <button type="button" class="copy-email" id="copy-email" data-email="sngugi.research@gmail.com" aria-label="Copy email address">copy</button>
+                    </span>
+                    <span id="email-copy-status" class="visually-hidden" role="status"></span>
+                    <a href="https://github.com/stanleyngugi" rel="me">github</a>
                     <a href="/rss.xml">rss</a>
                 </div>
             </div>
 
-            <section class="block">
-                <h2 class="block-title">Writing</h2>
-                <div class="year-label" style="font-size: 12.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); margin-bottom: 4px;">2026</div>
-                <a href="/posts/formally-verified-c.html" class="entry">
+            <section class="block" id="selected-writing">
+                <h2 class="block-title">Selected writing</h2>
+                <a href="/posts/formally-verified-c" class="entry">
                     <div class="entry-top">
                         <span class="entry-title">An RL Environment Where C Code Has to Be Proved, Not Just Tested</span>
-                        <span class="entry-date">Sep 13</span>
+                        <span class="entry-date">RL, formal methods · 20 min</span>
                     </div>
                     <div class="entry-desc">
-                        An RL environment where agents implement C functions under fixed ACSL contracts and receive formal verification feedback and reward from Frama-C.
+                        An RL environment where models write C functions and reward comes from
+                        proving that the code satisfies a fixed specification, rather than from
+                        passing a test suite. The public release includes 64 tasks and an isolated Frama-C judge.
                     </div>
                 </a>
-                <a href="/posts/mathcheck-rl.html" class="entry">
-                    <div class="entry-top"><span class="entry-title">Grading Mathematical Answers Without Answer Keys</span><span class="entry-date">Sep 12</span></div>
-                    <div class="entry-desc">Frozen bounded specifications become Lean-checked rewards; models supply answers or complete finite certificates.</div>
+                <a href="/posts/mathcheck-rl" class="entry">
+                    <div class="entry-top">
+                        <span class="entry-title">Grading Mathematical Answers Without Precomputed Answer Keys</span>
+                        <span class="entry-date">RL, formal methods · 23 min</span>
+                    </div>
+                    <div class="entry-desc">
+                        A math RL environment for bounded integer problems that does not store
+                        expected answers. Models return an integer or a complete finite certificate,
+                        and reward comes from checking that submission against the full encoded problem.
+                    </div>
                 </a>
-                <a href="/posts/mathcheck-engine.html" class="entry">
-                    <div class="entry-top"><span class="entry-title">Building a Lean-Backed Verifier for Bounded Mathematical Answers</span><span class="entry-date">Sep 12</span></div>
-                    <div class="entry-desc">Generated Lean obligations check exact bounded contracts and preserve the scope and failure mode of each verdict.</div>
+                <a href="/posts/mathcheck-engine" class="entry">
+                    <div class="entry-top">
+                        <span class="entry-title">Building a Lean-Backed Verifier for Bounded Mathematical Answers</span>
+                        <span class="entry-date">formal methods · 16 min</span>
+                    </div>
+                    <div class="entry-desc">
+                        A verification engine for bounded integer problems. It turns a problem
+                        specification and candidate answer into executable Lean code, checks the
+                        entire finite domain, and gives a definitive result without requiring a proof from the model.
+                    </div>
                 </a>
-                <a href="/posts/2026-08-22-grammar-constrained-decoding-lean.html" class="entry">
+                <a href="/posts/2026-08-22-grammar-constrained-decoding-lean" class="entry">
                     <div class="entry-top">
                         <span class="entry-title">How a Grammar Changes AI-Generated Mathematical Proof Steps</span>
-                        <span class="entry-date">Aug 22</span>
+                        <span class="entry-date">formal methods · 26 min</span>
                     </div>
                     <div class="entry-desc">
-                        A quick note on how the sampling works, some saved results, and some notes on how the grammars accept the models' outputs.
-                    </div>
+A study of how grammar masking keeps language-model generations inside the shape of Lean tactics, preventing malformed proof steps without confusing valid syntax with proof correctness.
+</div>
                 </a>
-                <a href="/posts/2026-08-22-lean-tactic-language-cfg.html" class="entry">
+                <a href="/posts/2026-08-22-lean-tactic-language-cfg" class="entry">
                     <div class="entry-top">
                         <span class="entry-title">Building a Grammar for AI-Generated Mathematical Proof Steps</span>
-                        <span class="entry-date">Aug 22</span>
+                        <span class="entry-date">formal methods · 19 min</span>
                     </div>
                     <div class="entry-desc">
-                        What a small grammar captures, what its fallback gives away, and how to measure the difference.
-                    </div>
+A practical study of Lean&#x27;s tactic language: extracting tactic forms from real proofs, designing a grammar around them, and stress-testing what the grammar accepts and rejects.
+</div>
                 </a>
-                <div class="year-label" style="font-size: 12.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); margin-bottom: 4px; margin-top: 28px;">2025</div>
-                <a href="/posts/taming_polysemanticity.html" class="entry">
+                <a href="/posts/taming_polysemanticity" class="entry">
                     <div class="entry-top">
                         <span class="entry-title">Taming Incidental Polysemanticity in Toy Models</span>
-                        <span class="entry-date">Oct 19</span>
+                        <span class="entry-date">interpretability · 25 min</span>
                     </div>
                     <div class="entry-desc">
-                        Do training choices shape feature entanglement? SAE-based measurements across
-                        regularization, init, activations and noise — L2 beat L1 by 17.9%.
+                        How training choices shape feature entanglement in overcomplete toy networks,
+                        using sparse autoencoders to compare the representations learned across
+                        different configurations and random seeds.
                     </div>
                 </a>
             </section>
 
-            <section class="block" id="research">
-                <h2 class="block-title">Research</h2>
+            <section class="block">
+                <h2 class="block-title" id="earlier-research">Earlier research</h2>
                 <a href="https://arxiv.org/abs/2508.07075" class="entry">
                     <div class="entry-top">
-                        <span class="entry-title">Surgical Knowledge Rewrite in Compact LLMs: An 'Unlearn-then-Learn' Strategy with ((IA)³)</span>
-                        <span class="entry-date">arXiv · Aug 2025</span>
+                        <span class="entry-title">Unlearn, Then Learn: A Circuit-Informed Knowledge-Editing Experiment</span>
+                        <span class="entry-date">preprint</span>
                     </div>
                     <div class="entry-desc">
-                        Locate a fact's circuit first, then unlearn-then-learn with (IA)³: 98.5% edit
-                        accuracy on Phi-3-mini while control-fact retention more than triples versus
-                        direct fine-tuning (72% vs ~20%) — and suppressed knowledge stays latent, not gone.
+                        An early experiment in changing one factual association in Phi-3-mini:
+                        first locate and suppress the original association, then train a replacement.
+                        The complete experimental pipeline is public.
                     </div>
                 </a>
                 <a href="https://arxiv.org/abs/2506.15415" class="entry">
                     <div class="entry-top">
-                        <span class="entry-title">Targeted Lexical Injection: Unlocking Latent Cross-Lingual Alignment in Lugha-Llama via Early-Layer LoRA Fine-Tuning</span>
-                        <span class="entry-date">arXiv · Jun 2025</span>
+                        <span class="entry-title">Targeted Lexical Injection: Early-Layer LoRA for Swahili–English Alignment</span>
+                        <span class="entry-date">preprint</span>
                     </div>
                     <div class="entry-desc">
-                        Swahili–English alignment was already near-perfect inside Lugha-Llama at Layer 2
-                        (cosine 0.99998) — just lost by the output layer (0.32). Early-layer contrastive
-                        LoRA brings it back: +28%, generalizing to unseen words.
+                        An early experiment using small adapters to strengthen Swahili–English word
+                        alignment already present inside Lugha-Llama, evaluated on training pairs
+                        and a separate set of unseen words.
                     </div>
                 </a>
             </section>
 
-            <section class="block">
-                <h2 class="block-title">Now</h2>
-                <p style="font-size: 14px;">
-                    Building RL environments for formal methods — closed training loops where a
-                    grammar-constrained generator talks to a real Lean kernel and every contact
-                    becomes step-level learning signal.
-                </p>
-            </section>
         </main>
 
         <footer>
@@ -154,5 +171,4 @@
     <script src="/main.js"></script>
 </body>
 </html>
-
 

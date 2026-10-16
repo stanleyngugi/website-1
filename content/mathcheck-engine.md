@@ -1,106 +1,65 @@
 # Building a Lean-Backed Verifier for Bounded Mathematical Answers
 
-> MathCheck Engine checks submitted answers against explicit finite specifications.
-> Trusted code generates a Lean proposition; compiled decision establishes the
-> encoded claim. The bounds, translation assumptions and execution outcome are
-> part of what the verdict means.
+The MathCheck Engine can check the correctness of a submitted answer against a finite specification. It does this by generating a Lean proposition and checking it using `native_decide`, under the trust assumptions of native Lean execution.
 
-Suppose a model says there are **33** integers divisible by 3 between 1 and 99.
-How should a grader decide whether to accept that answer?
+For instance, given the question "How many integers between 1 and 99 (inclusive) are divisible by 3?", how might an auto-grader determine if a submitted answer, say 33, is correct?
 
-One option is to compare it with a stored `33`. Another is to keep the rule:
-count every integer in the stated interval whose remainder modulo 3 is zero.
-The second option does not need a precomputed reference answer. It needs a
-specification and a checker that implements it faithfully.
+One way would be to compare the answer to a hard-coded correct value, also 33 in this case. This, however, requires one to know the answer ahead of time, and has some other downsides.
 
-MathCheck Engine explores that second interface. Its current structured
-contracts cover exact evaluation, bounded sums, counts, minima and complete
-relations over integer pairs. The caller owns the specification; the model
-supplies answer data. Lean checks a proposition generated from both.
+Another, more flexible way would be to write a specification for a correct answer - in this case, perhaps, "A correct answer is one which counts the number of elements in the interval that are 0 modulo 3". Then, a checker can be written to check answers against this specification.
 
-The interesting part is making the complete acceptance condition visible:
-which domain was checked, whether an answer is merely feasible or actually
-least, whether a list contains every required pair, and whether the checker
-reached a decision at all.
+MathCheck Engine provides a few interfaces (for exact evaluation, sum/count within bounds, minimum value and complete relations between pairs of integers), which take in a specification from the user, as well as the data to be checked (in this case, provided by an LLM), and use Lean to verify the proposition that the data is a correct answer against the specification.
 
-## Replace the reference answer with a rule
+Here are some of the interesting ideas involved in implementing this approach.
 
-Here is the specification for the opening question:
+## Instead of specifying what the answer should be, specify a property the answer must satisfy
+
+Here's how the above question would be encoded for MathCheck Engine:
 
 ```python
 from lean_kernel_verifier.specification import ProblemSpec
 
-spec = ProblemSpec(
-    kind="count",
-    expression="x%3 == 0",
-    start=1,
-    stop=100,
-)
+spec = ProblemSpec(kind="count", expression="x%3 == 0", start=1, stop=100)
 ```
 
-The interval is half-open: `[1, 100)` includes 1 and excludes 100. For a
-candidate `a`, the acceptance condition is:
+Note that intervals are half-open, so this denotes the interval [1, 100). The answer a will be accepted if and only if
 
 $$
-a = |\{x \in \mathbb{Z} : 1 \le x < 100 \land x \bmod 3 = 0\}|.
+a = |\{x \in \mathbb{Z} : 1 \le x < 100 \land x \bmod 3 = 0\}|,
 $$
 
-There is no expected-answer field in `spec`. The candidate `33` arrives
-separately. The checker enumerates the whole domain and compares its count
-with that candidate.
+which is exactly the number of multiples of 3 in the given interval. Crucially, notice that spec does not contain any information about what the expected answer should be - only a description of what a correct answer should look like. The checker will enumerate this entire domain to verify the answer.
 
-This is answer-key-free checking, but it is not computation-free checking.
-For these small finite problems, the checker often computes essentially the
-same result a solver would compute. Nor is it supervision-free: someone still
-has to choose the correct rule and bounds. The trusted object has changed
-from a stored answer to a specification.
+But is it really without an answer key? Is it really without computation? Is it really without supervision? In fact, in this case, to check the answer, it does roughly the same amount of work as it would to compute the answer in the first place. And when it comes to choosing the correct rule and bounds, this is certainly supervised! So in a way, it’s almost the same, but the thing that must be trusted has changed from the answer to the specification.
 
-The distinction becomes more useful when correctness requires more than
-matching a scalar.
+There are more interesting use cases for this approach, though, when checking the answer is more interesting than just checking it against some scalar.
 
 ## Feasible is not necessarily least
 
-Consider another task:
+Let’s try another task:
 
-> Find the least integer in [0, 100) that leaves remainder 3 modulo 7
-> and remainder 2 modulo 5.
+Find the least number in the range [0, 100) that satisfies x≡3(mod 7) and x≡2(mod 5).
 
-Both 17 and 52 satisfy the two congruences. A checker that tests only those
-congruences would accept both. The word **least** adds another obligation.
-
-Let `P(x)` denote the congruences. A candidate `a` must satisfy:
+In this case, there are three numbers that satisfy the congruences, 17, 52 and 87. Simply checking that the congruences are satisfied by the answer is not sufficient. Where did the new information come in? It came in from the word “least”. To check that some number a is the correct answer, one must show that
 
 $$
-0 \le a < 100
-\quad\land\quad P(a)
-\quad\land\quad
+0 \le a < 100 \land P(a) \land
 \forall x \in \mathbb{Z} \cap [0,100),\; x<a \Rightarrow \neg P(x).
 $$
 
-The Engine's `minimum` contract includes all three clauses:
+where P(x) is the proposition that x satisfies the congruences. All three of these clauses are checked by the minimum contract in the Engine, which one would use to specify this problem as follows:
 
 ```python
 spec = ProblemSpec("minimum", "x%7 == 3 and x%5 == 2", 0, 100)
 ```
 
-On a healthy backend, 17 is accepted. The candidate 52 is rejected because 17
-is a smaller satisfying value. A candidate outside the interval also fails.
-These are mathematical consequences of the contract, not evidence that a
-particular runtime has already executed the example.
+If a backend is healthy, it should accept 17 as an answer to this problem but reject 52, since 17 is a smaller satisfying value. It should also reject values outside of the specified range, for mathematical reasons, not because the runtime has seen an example like this before.
 
-The finite bounds are part of the statement. This contract establishes
-leastness within the declared interval. An unbounded question needs a
-justification that its relevant solutions lie there; adding a convenient
-search limit alone changes the question.
+Note that the finiteness of the range is part of the problem statement; it’s not an arbitrary choice. It’s true that the problem would be different if the range were not bounded, and in that case it would be up to the problem statement to show that the range is bounded. Simply putting a bound in to make the problem easier changes the question.
 
-A predicate with no satisfying value exposes another boundary: the current
-submission is a nonnegative integer, not a "no solution" certificate. No
-integer can successfully answer that instance under the present contract.
+Another thing to note is that if the problem were specified with a predicate P(x) that was never satisfied, then there would be no integer that could be a successful submission, with the current specification.
 
-## Follow the specification into Lean
-
-The structured path separates what the caller trusts from what the model
-may choose:
+## Follow the spec and check it in Lean
 
 ```mermaid
 flowchart TD
@@ -111,20 +70,13 @@ flowchart TD
     L --> R["Scoped verdict and diagnostics"]
 ```
 
-The model cannot replace the predicate, alter the bounds or submit a theorem
-about an easier problem. The structured APIs generate the Lean source
-themselves.
+The structured path enforces a separation of concerns.
 
-Expressions use Python's parser, but only a restricted syntax tree is
-translated. There is no arbitrary `eval`. Integer literals, declared
-variables, arithmetic, comparisons and Boolean connectives are supported.
-Calls, imports, attributes, arbitrary identifiers and floating-point values
-are rejected. Division and modulo require a positive literal divisor.
+The model can’t, for example, replace the predicate, tweak the bounds, or pass an easier problem to the theorem prover, because the APIs are structured to generate the corresponding Lean source.
 
-For the opening count and candidate 33, `compile_answer_check` produces the
-following checking core. Whitespace is expanded here for readability; the
-[complete generated file](https://github.com/stanleyngugi/mathcheck-engine/blob/main/examples/generated_count.lean) also contains the
-shared template's options and arithmetic helpers.
+Moreover, while the Lean API does use Python’s expression parser, it only translates a restricted set of syntax trees into Lean code – there is no arbitrary eval-ing. It supports integer literals, declared variables, most arithmetic and comparison operations, and Boolean connectives, but it will raise an error if it encounters a function call, import, attribute, arbitrary identifier, or float, for instance. Division and modulo by a non-literal are also disallowed, to prevent division by zero (but division/modulo by a positive literal is allowed).
+
+For the earlier count problem, `compile_answer_check` generates the following checking core (with added whitespace for legibility). The [complete file](https://github.com/stanleyngugi/mathcheck-engine/blob/main/examples/generated_count.lean), including a template with common options and definitions for arithmetic, can be found there.
 
 ```lean
 def problem_spec (ans : Nat) : Bool := decide (
@@ -143,41 +95,31 @@ theorem verify :
   native_decide
 ```
 
-Here `Nat` denotes nonnegative integers, `Int` signed integers and `Bool` a
-computable true/false value. `decide` turns a decidable proposition into that
-Boolean test. Read the computation in four steps:
+In Lean, Nat is the type of nonnegative integers, Int is the type of signed integers, and Bool is the type of computable booleans. decide is a function that takes a decidable proposition and tests it. In English, the above code says
 
-1. `List.range 99` creates indices 0 through 98. Adding 1 gives the requested
-   domain, 1 through 99.
-2. `filter` retains exactly the values satisfying the translated predicate.
-   Its length is compared with `ans`.
-3. `f` returns 1 precisely when candidate 33 passes that complete test.
-4. The theorem requires that success marker. `native_decide` evaluates the
-   decidable proposition to establish it.
+Construct the list of integers from 0 to 98 (inclusive), add 1 to each element (to get the desired range of 1 to 99),
 
-The array `#[1]` is a shared template's success marker, not a stored
-mathematical answer of 33. Scalar and pair contracts reuse this template;
-finite-sequence checking uses it differently, with supplied observations.
+filter for those which satisfy the given predicate, get the length of the list, and compare it to the answer.
 
-You can inspect the source without installing Lean:
+Define f to return 1 if and only if the candidate answer 33 passes the check from 2.
+
+Require that f returns 1 via a theorem statement, and prove this theorem by evaluating the underlying decidable proposition with native_decide .
+
+Some of the time you will see an array like `#[1]` in a template. This is just a way to mark that a template was successfully used. The answer 33 isn't stored in the shared template; it is inserted into the generated check for this submission. The same template is used to check any scalar or pair contract answer. When checking a finite sequence, the same template is still used, but it's used slightly differently and you need to provide the observations.
+
+You can inspect the source for these without installing lean by importing the relevant function:
 
 ```python
 from lean_kernel_verifier.specification import compile_answer_check
 
-print(compile_answer_check(
-    ProblemSpec("count", "x%3 == 0", 1, 100), 33
-))
+print(compile_answer_check(ProblemSpec("count", "x%3 == 0", 1, 100), 33))
 ```
 
-To execute a check, configure the runner. After following the
-[isolated-runner setup](https://github.com/stanleyngugi/mathcheck-engine/blob/main/README.md#opt-in-linux-isolation), set `LEAN_BIN` to
-the installed `lean-isolated` launcher:
+To execute them, you'll need to configure a runner. Follow the [isolated-runner instructions](https://github.com/stanleyngugi/mathcheck-engine/blob/main/README.md#opt-in-linux-isolation), then set the `LEAN_BIN` env var to point to the installed `lean-isolated` launcher:
 
 ```python
 import os
-from lean_kernel_verifier.runner.checker_runner import (
-    CheckerRunConfig, LeanCheckerRunner,
-)
+from lean_kernel_verifier.runner.checker_runner import CheckerRunConfig, LeanCheckerRunner
 from lean_kernel_verifier.specification import verify_answer
 
 runner = LeanCheckerRunner(CheckerRunConfig(
@@ -192,20 +134,17 @@ finally:
     runner.close()
 ```
 
-The result contains the candidate, specification digest, status, scope, trust
-statement and checker diagnostics. Inspect the status when execution fails;
-`verified=False` alone does not explain why.
+The result object contains all the information you need: the candidate answer, the problem specification digest, the verification status and scope, whether you should trust the statement, and diagnostics from the checker. If execution of the answer checker fails for some reason, inspect the status field for more information.
 
-## A valid pair is not a complete relation
+## Valid, but not the whole relation
 
-Now suppose a task asks for every pair in `[0, 5) × [0, 5)` satisfying:
+For another task, consider the relation
 
 ```text
 x < y and x + y = 4
 ```
 
-The satisfying relation is `[(0, 4), (1, 3)]`. Submitting only `(0, 4)`
-provides a valid witness, but it does not provide the complete result.
+whose full answer over the domain [0, 5) x [0, 5) is [(0, 4), (1, 3)]. If you provide the pair (0, 4) as your answer, note that it satisfies the relation but it's not the whole answer. How do you check this?
 
 ```python
 from lean_kernel_verifier.certificates import PairCountSpec, PairCertificate
@@ -214,196 +153,104 @@ spec = PairCountSpec("x < y and x+y == 4", 0, 5, 0, 5)
 certificate = PairCertificate(((0, 4), (1, 3)), answer=2)
 ```
 
-`verify_pair_certificate(spec, certificate, runner)` makes Lean construct the
-entire satisfying relation in lexicographic domain order. Acceptance requires
-exact equality with the submitted list and agreement with the claimed count.
+When you call `verify_pair_certificate(spec, certificate, runner)`, Lean will construct the full answer (in lexicographic domain order) and check that it exactly matches the list you provided, and that your provided answer matches the length of the list.
 
-| Submission | Why it fails or succeeds |
-| --- | --- |
-| Both pairs, count 2 | Complete relation and correct cardinality |
-| Only `(0, 4)`, count 1 | Valid witness, incomplete relation |
-| Both pairs, count 1 | Complete relation, wrong cardinality |
-| A list containing `(2, 2)` | Includes a pair violating the predicate |
-| Repeated or unsorted pairs | Violates the candidate's structural contract |
+|Submission|Why it fails or succeeds|
+|---|---|
+|Both pairs, count 2|Complete relation and correct cardinality|
+|Only `(0, 4)`, count 1|Valid witness, incomplete relation|
+|Both pairs, count 1|Complete relation, wrong cardinality|
+|A list containing `(2, 2)`|Contains a pair that does not satisfy the relation|
+|A list that is unsorted or contains repeated pairs|Violates the required sorted, duplicate-free format|
 
-Here **certificate** means complete finite answer data. It does not mean a
-compact proof or necessarily a faster verification algorithm. The checker
-recomputes the relation, and the certificate can grow with its size.
+Here ‘certificate’ means the entirety of the data of the answer, not necessarily something that is shorter or is verified with an algorithm that’s faster than one that simply re-computes the answer.
 
-Checking that every submitted pair is valid proves inclusion in the satisfying
-relation. Checking list equality additionally establishes that no required
-pair was omitted.
+The actual check establishes that every listed pair satisfies the criteria and that no valid pair is omitted, by checking the lists are equal.
 
-## When representation became the bottleneck
+## Operational failure with a large answer
 
-Large certificates revealed a practical problem. The original implementation
-embedded the submitted relation as a large Lean list term. Even though the
-mathematical domain was bounded, constructing and elaborating that source
-representation became expensive.
+When the answers become large, it becomes a problem to represent the lists of pairs directly in the source representation in the form of a large Lean list. Although the domain size is bounded in this problem, it is still expensive to construct and elaborate such a representation.
 
-A recorded sweep exercised sums, counts and pair relations at domain sizes
-10, 100, 1,000 and 10,000, with two repetitions and both positive and negative
-controls: 48 trials. The original sweep completed 44 controls; all four trials
-at the largest pair size timed out.
+The original sweep of this problem (which includes a sweep of sums, counts and pairs at different domain sizes, with 2 repetitions and both positive and negative controls, for a total of 48 trials) failed to complete all control trials. In particular, the four trials corresponding to the largest pair size timed out, and the other 44 controls completed.
 
-The fix changed the representation, not the acceptance relation. Pairs are now
-serialized as bounded decimal data such as:
+The problem was addressed by changing the data representation. Pairs are now serialized in the form of bounded decimal numbers, for example:
 
 ```text
 0,4;1,3
 ```
 
-Lean decodes the string into an optional pair list. The acceptance condition
-requires successful decoding, exact equality with the independently enumerated
-relation and matching cardinality. A decoding failure cannot silently become
-a successful empty list.
+There is a Lean function that can interpret this representation as a list of pairs (returning an option type). The actual acceptance condition is now that the data is valid (i.e., its interpretation is not `none`), the interpreted data is equal to the correct relation (computed independently) and that the cardinality is correct (to avoid an issue where the interpretation could silently fail and produce an empty list).
 
-In the [recorded revised sweep](https://github.com/stanleyngugi/mathcheck-engine/blob/main/evaluation_records/public_v1_computational_sweep_fixed.jsonl),
-all 48 controls completed with the expected outcomes and no operational
-failures. The [original record](https://github.com/stanleyngugi/mathcheck-engine/blob/main/evaluation_records/public_v1_computational_sweep.jsonl)
-preserves the timeouts.
+The [revised set of trials](https://github.com/stanleyngugi/mathcheck-engine/blob/main/evaluation_records/public_v1_computational_sweep_fixed.jsonl) completes all 48 control trials as expected without operational failure. The [original set of trials](https://github.com/stanleyngugi/mathcheck-engine/blob/main/evaluation_records/public_v1_computational_sweep.jsonl), with the four timeout failures, can be seen there.
 
-These are historical observations, not a validation run of release 0.3.3 or
-a controlled speedup benchmark. The repetitions did not control operating-system
-cache state. The records support a narrower conclusion: the revised representation
-completed the formerly failing controls in that experiment.
+These are only historical, not a validation run for 0.3.3, and not under control for speedup, but the records will serve to show that the controls that previously failed do complete with the representation revised in this commit. Also note that repetitions are not under control for operating system cache effects.
 
-A bounded mathematical computation can still have an expensive representation.
-A checker needs attention to both.
+The importance of representation for even bounded mathematical computation.
 
-## Why Lean when Python can compute the same result?
+## Why not do this in python?
 
-Python can implement every current acceptance relation, including exhaustive
-counts, leastness and complete-list equality. Removing an answer key does not
-require Lean.
+All of the acceptance relations currently used could be done in python (exhaustive counts, leastness, complete list equality, etc…) so why would it be necessary to use Lean to remove the answer key?
 
-Lean supplies a formal language for the obligation and a proof framework in
-which to establish it. That makes the generated claim inspectable and gives
-the project a foundation for relating future checker computations to
-mathematical definitions. It does not, by itself, demonstrate that this
-implementation is faster or more reliable than a Python baseline.
+Short answer: Because it’s cool! Longer answer: Lean provides a formal language and framework for proving that what the checker does, does what it should. This doesn’t mean that what’s done here is better or even as good as it could be done in, say, python.
 
-Formal verification is not determined by the surface language. Python can
-host a proof checker or solver, and tools such as
-[Nagini](https://www.pm.inf.ethz.ch/research/nagini.html) verify a supported
-Python subset against contracts. SMT solvers provide symbolic automation;
-proof assistants provide logical frameworks and checking mechanisms. They
-can work together, as in
-[Isabelle's reconstruction of external prover results](https://isabelle.in.tum.de/library/Doc/Prog_Prove/Logic.html).
+Another longer answer: one could write a proof checker or solver in python (or indeed any turing-complete language). Even better, one can (at least for a subset of python) formally verify that a python program meets contracts (see for example, [Nagini](https://www.pm.inf.ethz.ch/research/nagini.html)). SMT solvers and proof assistants have different roles and trust models, the former specialising in symbolic approaches to automate proof search, the latter providing logical frameworks and checking mechanisms. Of course, they can (and do) be used together, see for example, how Isabelle deals with external provers: [Isabelle](https://isabelle.in.tum.de/library/Doc/Prog_Prove/Logic.html)
 
-Exhaustive checking of an explicitly finite domain can establish a formal
-claim. It is different from sampling a few inputs and extrapolating. The
-important questions are what proposition was established, how its semantics
-connect to the intended problem, and which machinery is trusted.
+Checking exhaustively over an explicit finite domain is formally OK, it’s just not the same as taking a few samples and concluding that the rest will follow. It all depends on what proposition is being established, what semantics it is supposed to represent and what machinery is to be trusted to relate the two.
 
-For this Engine, `native_decide` is the chosen computational proof mechanism.
-The [Lean 4.23 reference](https://lean-lang.org/doc/reference/4.23.0/Tactic-Proofs/Tactic-Reference/#native_decide)
-explains that it uses native evaluation and the `Lean.ofReduceBool` axiom.
-Compiler and runtime correctness therefore matter in addition to the proof
-infrastructure. This is not kernel-only reduction.
+For this Engine, the chosen proof machinery is `native_decide`. According to the [Lean 4.23.0 reference](https://lean-lang.org/doc/reference/4.23.0/Tactic-Proofs/Tactic-Reference/#native_decide), this uses native evaluation and the axiom `Lean.ofReduceBool` to close the goal, so compiler and runtime correctness are part of the trust model. Note in particular that it is not just reduced within the kernel.
 
-Three claims must remain distinct:
+Currently, there are three separate claims, which are connected by the links in the chain:
 
-| Claim | Current position |
-| --- | --- |
-| This candidate satisfies this generated bounded proposition | Established by an accepted native Lean check, under its trust assumptions |
-| The translation faithfully implements every supported specification | The Python translator and templates are trusted and tested; not formally verified |
-| The specification faithfully represents the original prose | An upstream interpretation and review responsibility |
+|Claim about the proof assistant|How the link is established|
+|---|---|
+|A given candidate is a valid model for a proposition generated by the bounded proposition generator|Checked by the native Lean check, assuming the conditions of its trust model are satisfied|
+|The proposition generation faithfully implements all supported aspects of the specification|The Python code for the translator and its templates have been tested, but are not formally verified. Trust in this link depends on trusting that code.|
+|The specification faithfully implements the original text of the proposition to be checked|This is currently the responsibility of whoever is using this in an upstream setting to interpret and review.|
 
-A theorem about the checker itself could strengthen the second connection.
-That is future work, not a theorem this release claims to have proved.
+It may be possible to write a theorem about some aspects of the checker that could be useful to tie these together. This is an avenue for future work.
 
-The distribution name `lean-kernel-verifier` remains for 0.x compatibility.
-Results label their trust model `lean_native_compiler_and_runtime`; the
-package name should not imply a smaller trusted base.
+The distribution name of this library is `lean-kernel-verifier` for compatibility with the 0.x series of this library. Note, however, that this should not be taken to indicate that the results provided by this library have a small trusted computing base. The trust model is that of the native Lean compiler and runtime, and results from this package should be labeled accordingly.
 
-## Keep execution failure separate from mathematics
+## Distinguishing mathematical and operational failure
 
-A proof attempt can fail because its proposition is false. It can also fail
-because a compiler cannot start, a process times out, or generated code fails
-to elaborate. Those outcomes must not become the same scientific label.
+Note that there are two distinct ways in which a proof can "fail": either because the proposition it was intended to prove is not valid, or because the execution of the compiler in some way failed. This package makes an effort to distinguish these, at least when using the more structured APIs, by providing three execution statuses:
 
-The structured APIs use these execution statuses:
+|Symbolic name of status|Meaning of this status|
+|---|---|
+|`checked_success`|The code checker was successfully executed with the given configuration, and it accepted the encoded claim as valid.|
+|`mathematical_rejection`|The code checker was successfully executed and provided a complete set of known `native_decide` error diagnostics indicating that the encoded proposition evaluated to false.|
+|`operational_error`|There was an error in the execution, or the information provided was not sufficient to establish one of the above conditions.|
 
-| Status | What it establishes |
-| --- | --- |
-| `checked_success` | The configured checker completed and accepted the encoded claim |
-| `mathematical_rejection` | Complete recognized `native_decide` diagnostics report that the proposition evaluated to false |
-| `operational_error` | Execution failed or the output does not establish a recognized decision |
+Previously, this only distinguished the last case from the first two, by treating an exit code of 1 as indicating a mathematical rejection. As of engine version 0.3.3, this will attempt to distinguish the middle case from the last, by recognizing the complete set of diagnostics for a negative decision from the code checker, as specified in [the Lean regression tests](https://github.com/leanprover/lean4/blob/v4.23.0/tests/lean/run/decideNative.lean). This is not considered to be exporting mathematical information out of the prover; rather, it is a matter of interpreting diagnostics, and if the format of those diagnostics changes, then the adapter will need to be updated accordingly.
 
-Exit code 1 alone is insufficient for mathematical rejection. Engine 0.3.3
-recognizes the complete negative-decision diagnostic specified by
-[Lean 4.23's own regression tests](https://github.com/leanprover/lean4/blob/v4.23.0/tests/lean/run/decideNative.lean).
-Unrecognized, truncated or mixed error output is conservatively operational.
-This is diagnostic interpretation, not an exported mathematical counterexample;
-a future diagnostic-format change can require an adapter update.
+Requests with invalid types will produce an "input error" before being checked. The JSON CLI will handle these as `"invalid_input"` in cases where the JSON structure is not well-formed or where objects contain duplicate keys at any depth, and those requests will not be sent to Lean. `"unsupported_task"` exists to maintain a common vocabulary with other Engines, but requests specifying an unsupported Engine will fail to be constructed, so this status code is never produced by dispatching to a contract registry.
 
-Invalid typed requests raise an input error before checking. The JSON CLI
-reports handled malformed requests as `invalid_input`, rejects duplicate keys
-at any object depth, and does not invoke Lean for those requests.
-`unsupported_task` remains part of the shared status vocabulary, but unsupported
-Engine specifications are rejected during construction; there is no runtime
-contract registry dispatching that status.
+Returning a reward of 0 for an incorrect answer is very different from returning a reward of 0 when a worker is not available; the latter should not be used to train a model on its math abilities. The [MathCheck RL implementation](https://github.com/stanleyngugi/mathcheck-rl) additionally uses this to avoid caching it as if the contract had been completed.
 
-The distinction matters downstream. A wrong answer and an unavailable worker
-may both receive zero reward, but the latter supplies no evidence about a
-model's mathematical ability. [MathCheck RL](https://github.com/stanleyngugi/mathcheck-rl)
-preserves the status and avoids caching operational failures as completed verdicts.
+Engine's raw runner will, by default, execute a `lean` on the same machine as Engine, configured in its settings. This runner supports timeouts (on the `lean` subprocess) and a lexical sanitizer but is not sandboxed in any OS-dependent manner. For Lean 4.23.0 specifically, Engine can be configured with a `lean-isolated` command that wraps `lean` in a sandbox using `bubblewrap`. This wrapper additionally sets process limits and will never run the request if it cannot be isolated. This wrapper is opt-in and Linux-only; MathCheck RL requires it to be explicitly configured.
 
-Isolation is a separate execution property. Engine's raw runner defaults to
-a configured host `lean` executable; subprocess timeouts and a lexical
-sanitizer are not an operating-system sandbox. The opt-in Linux
-`lean-isolated` wrapper requires Lean 4.23.0 exactly, isolates filesystem and
-network access with bubblewrap, applies per-process limits and refuses an
-unisolated fallback. RL requires that explicitly configured wrapper.
+This is not meant to be a full design for a multi-tenant service, and does not account for aggregate resource management or deployment concerns. The structured contract checks currently rely on Lean infrastructure but not on Mathlib.
 
-The wrapper is not a complete multi-tenant service design. Aggregate resource
-budgets and deployment policy remain outside its per-process limits. Current
-structured checks need Lean's standard infrastructure, not Mathlib.
+## Supported contracts and checks
 
-## The supported surface and its evidence
+|Contract type|Submitted answer|Checked via|
+|:-|:-|:-|
+|Evaluation of an expression to a non-negative integer|Non-negative integer|Equality to a closed integer expression|
+|Sum of values over an interval of non-negative integers|Non-negative integer|Equality to the exact result of a fold|
+|Count of indices satisfying a property over an interval of non-negative integers|Non-negative integer|Equality to the exact cardinality of a filter|
+|Minimum satisfying index over a bounded domain of non-negative integers|Non-negative integer|Presence in the domain, satisfaction of the property, and minimality|
+|Enumeration of a finite relation over pairs of non-negative integers|Pair list (sorted, no duplicates) and a count|Successful decoding, equality to the full relation, and cardinality|
 
-| Contract | Submitted data | Acceptance condition |
-| --- | --- | --- |
-| Evaluation | Nonnegative integer | Equality with a closed integer expression |
-| Sum | Nonnegative integer | Equality with the exact fold over the interval |
-| Count | Nonnegative integer | Equality with the number of satisfying indices |
-| Minimum | Nonnegative integer | Domain membership, feasibility and leastness |
-| Pair relation | Sorted unique pair list and count | Successful decoding, complete relation equality and cardinality |
+All interval endpoints are restricted to be nonnegative and at most 1000000. All scalar intervals must cover at most 10000 indices, and all pairs rectangles must cover at most 10000 points. The character, syntax node, and power limits for expressions are enforced by the implementation. All submitted scalar values must be in [0, 10**1000). Negative numbers can be used in arithmetic, but to get a negative answer, a different submission contract must be used. All literal values in div/mod operations must be positive. Division and modulo are the integer floor division/modulo. Rational arithmetic is not supported.
 
-Endpoints are nonnegative and at most 1,000,000. Scalar intervals contain at
-most 10,000 indices; pair rectangles contain at most 10,000 points. Expressions
-have character, syntax-node and power limits. Scalar submissions lie in
-`[0, 10**1000)`; negative intermediate arithmetic is supported, but negative
-final answers need another submission contract. Positive literal divisors
-give integer floor division and modulo; rational arithmetic is not supported.
+For other interfaces in the MathCheck repository, the meanings are different. There, the "raw" source will run whatever Lean code is submitted, gated by the policy as configured. The "historical" sequence template does not look for an infinite sequence following a recurrence, but just checks the given (finite) sequences against what is provided in the template. The symbolic routines are not used in the current structured API, but provide some symbolic routines to try to obtain formulas or structures.
 
-Other repository interfaces have different meanings. The raw-source runner
-checks submitted Lean under its configured policy. The historical sequence
-template checks supplied finite observations, not an infinite recurrence.
-Symbolic routines propose formulas or structures; they are not the structured
-API's final verification authority.
+Latest release covered by this article: [v0.3.3](https://github.com/stanleyngugi/mathcheck-engine/releases/tag/v0.3.3). 2026-10-05: Joint Engine/RL gate — no code changes — passed on Ubuntu 24.04.4 (QEMU WHPX) with Python 3.12.3, bubblewrap 0.9.0, and a stock read-only Lean 4.23.0; 96 tests and 52 subtests passed (no required native checks skipped). Isolated native controls, repeatable wheel builds, and fresh installed-package checks also passed.
 
-The published release is [**0.3.3**](https://github.com/stanleyngugi/mathcheck-engine/releases/tag/v0.3.3).
-On 2026-10-05, the unchanged joint Engine/RL gate passed on Ubuntu 24.04.4
-under QEMU WHPX, using Python 3.12.3, bubblewrap 0.9.0 and stock read-only
-Lean 4.23.0. The Engine suite passed **96 tests and 52 subtests**, with no
-required native checks skipped. The gate also passed the isolated native
-controls, repeatable wheel builds and fresh installed-package checks.
+Current validation details (exact revisions, commands, toolchain provenance, and artifact hashes) are in [CURRENT_VALIDATION.md](https://github.com/stanleyngugi/mathcheck-engine/blob/main/CURRENT_VALIDATION.md). [Joint closeout evidence](https://github.com/stanleyngugi/mathcheck-rl/tree/main/docs/evidence/native-closeout-whpx-20261005-final), including downloaded release asset verification and a fresh Linux consumer running isolated acceptance/rejection controls, is also available. These results do not establish correctness of the translator for all inputs, nor guarantee arbitrary prose-to-spec fidelity. Historical evidence for v0.3.2 remains in [RELEASE_EVIDENCE_0.3.2.md](https://github.com/stanleyngugi/mathcheck-engine/blob/main/RELEASE_EVIDENCE_0.3.2.md).
 
-[Current validation](https://github.com/stanleyngugi/mathcheck-engine/blob/main/CURRENT_VALIDATION.md)
-links the exact source revisions, commands, toolchain provenance and artifact
-hashes. The [joint closeout evidence](https://github.com/stanleyngugi/mathcheck-rl/tree/main/docs/evidence/native-closeout-whpx-20261005-final)
-also records downloaded release-asset verification and a fresh Linux consumer
-running isolated acceptance and rejection controls. These results establish
-the recorded checks on that platform; they do not establish translator
-correctness for every possible input or arbitrary prose-to-specification
-fidelity. The [0.3.2 release record](https://github.com/stanleyngugi/mathcheck-engine/blob/main/RELEASE_EVIDENCE_0.3.2.md)
-remains available as historical evidence.
+## Why this Engine is useful (in a nutshell)
 
-The Engine's contribution is this explicit boundary: the caller fixes a finite
-mathematical contract, the model supplies data, and the checker establishes
-the encoded acceptance claim under stated assumptions. Making that boundary
-inspectable is useful even when the computation is simple. Preserving it
-through parsing, translation and execution is where the engineering becomes
-interesting.
+In a nutshell, the Engine makes the boundary between the mathematical contract, the submitted answer, and the checking process explicit. The model provides the data, while the checker tests the complete finite acceptance condition rather than comparing with a stored answer. But the scope and trust assumptions still matter: a Lean check can establish the encoded claim without proving that someone encoded the original question correctly.
+
+The code is available at [MathCheck Engine](https://github.com/stanleyngugi/mathcheck-engine), and the companion [MathCheck RL article](https://stanleyngugi.netlify.app/posts/mathcheck-rl) explains how its verdicts become rewards.
