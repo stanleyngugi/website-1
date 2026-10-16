@@ -8,7 +8,7 @@
   },
   "mathcheck-engine.md": {
     "source": "https://github.com/stanleyngugi/mathcheck-engine/blob/main/TECHNICAL_ARTICLE.md",
-    "sha256": "81aa08f23f4f00baefe18d4f9dac723af479830f0ced8a364ffc0560a65a902b",
+    "sha256": "8e58fa855b7165ae561510fcbd3d2f8e20cfa983d3f230b2d5877ef247e135b3",
     "output": "posts/mathcheck-engine.html",
     "title": "Building a Lean-Backed Verifier for Bounded Mathematical Answers",
     "reading_minutes": 16
